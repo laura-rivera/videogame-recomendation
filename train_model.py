@@ -17,6 +17,22 @@ import seaborn as sns
 from datetime import datetime
 import os
 
+GAMING_COLORS = {
+    'primary': '#00FF88',      # Neon Green (Cyber)
+    'secondary': '#0088FF',    # Electric Blue
+    'accent': '#FF0088',       # Neon Pink
+    'dark_bg': '#0A0A12',      # Dark Blue-Black
+    'card_bg': '#1A1A2E',      # Dark Card
+    'grid': '#2A2A3E',         # Grid Lines
+    'text': '#E0E0FF',         # Light Blue Text
+    'highlight': '#FFFFFF',    # Blanco para máximo contraste
+    'light_text': '#F0F0FF',   # Texto más claro
+    'medium_bg': '#252540',    # Fondo intermedio para mejor contraste
+}
+
+# Gaming palettes
+PLAYSTYLE_PALETTE = ['#00FF88', '#0088FF', '#FF0088', '#FFAA00', '#AA00FF']
+
 class GameplayModelTrainer:
     """Clase para entrenar y evaluar modelos de clasificación"""
     
@@ -30,6 +46,36 @@ class GameplayModelTrainer:
         self.y_test = None
         self.feature_names = None
         self.results = {}
+    
+    def _apply_gaming_style(self, fig, title):
+        """Apply gaming theme to figure - matches EDA style"""
+        fig.patch.set_facecolor(GAMING_COLORS['dark_bg'])
+        if hasattr(fig, 'axes'):
+            for ax in fig.axes:
+                ax.set_facecolor(GAMING_COLORS['card_bg'])
+                
+                # Mejorar contraste de etiquetas
+                ax.xaxis.label.set_color(GAMING_COLORS['light_text'])
+                ax.yaxis.label.set_color(GAMING_COLORS['light_text'])
+                ax.tick_params(colors=GAMING_COLORS['light_text'], labelsize=10)
+                
+                # Mejorar título
+                if hasattr(ax, 'title'):
+                    ax.title.set_color(GAMING_COLORS['primary'])
+                    ax.title.set_fontweight('bold')
+                    ax.title.set_fontsize(12)
+                
+                # Style grid
+                ax.grid(True, alpha=0.3, color=GAMING_COLORS['grid'])
+                
+                # Style spines
+                for spine in ax.spines.values():
+                    spine.set_color(GAMING_COLORS['primary'])
+                    spine.set_linewidth(1.5)
+        
+        # Use text-only title to match EDA style
+        fig.suptitle(title, fontsize=16, color=GAMING_COLORS['primary'], 
+                    fontweight='bold')
         
     def load_data(self, filepath='data/gaming_behavior_processed.csv'):
         """Carga los datos preprocesados"""
@@ -223,7 +269,7 @@ class GameplayModelTrainer:
         return comparison_df
     
     def plot_feature_importance(self):
-        """Visualiza la importancia de características"""
+        """Visualiza la importancia de características con estilo gaming"""
         if not hasattr(self.best_model, 'feature_importances_'):
             print("El mejor modelo no tiene feature_importances_")
             return
@@ -231,86 +277,138 @@ class GameplayModelTrainer:
         importance_df = pd.DataFrame({
             'feature': self.feature_names,
             'importance': self.best_model.feature_importances_
-        }).sort_values('importance', ascending=False)
+        }).sort_values('importance', ascending=True).tail(15)  # Changed to horizontal bars
         
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, ax = plt.subplots(figsize=(12, 10))
         
-        sns.barplot(data=importance_df.head(15), y='feature', x='importance', 
-                   palette='viridis', ax=ax)
-        ax.set_title(f'Top 15 Features - {self.best_model_name}', 
-                    fontsize=14, fontweight='bold')
-        ax.set_xlabel('Importancia')
-        ax.set_ylabel('Feature')
+        # Gaming-style horizontal bars
+        bars = ax.barh(importance_df['feature'], importance_df['importance'],
+                    color=GAMING_COLORS['secondary'], alpha=0.8,
+                    edgecolor=GAMING_COLORS['primary'], linewidth=2)
         
+        # Add value labels on bars
+        for bar in bars:
+            width = bar.get_width()
+            ax.text(width + 0.01, bar.get_y() + bar.get_height()/2, 
+                    f'{width:.3f}', ha='left', va='center',
+                    fontweight='bold', color=GAMING_COLORS['highlight'],
+                    bbox=dict(boxstyle="round,pad=0.3",
+                            facecolor=GAMING_COLORS['dark_bg'],
+                            edgecolor=GAMING_COLORS['primary'],
+                            alpha=0.8))
+        
+        ax.set_xlabel('Importancia', color=GAMING_COLORS['light_text'], fontsize=12)
+        ax.set_ylabel('Feature', color=GAMING_COLORS['light_text'], fontsize=12)
+        
+        self._apply_gaming_style(fig, f'TOP 15 FEATURES - {self.best_model_name.upper()}')
         plt.tight_layout()
-        plt.savefig('visualizations/feature_importance.png', dpi=300, bbox_inches='tight')
+        plt.savefig('visualizations/feature_importance.png', dpi=300, bbox_inches='tight',
+                    facecolor=GAMING_COLORS['dark_bg'])
         print("\nFeature importance guardada: visualizations/feature_importance.png")
         
         return importance_df
     
     def plot_confusion_matrix(self):
-        """Visualiza la matriz de confusión"""
+        """Visualiza la matriz de confusión con estilo gaming"""
         y_pred = self.best_model.predict(self.X_test)
         cm = confusion_matrix(self.y_test, y_pred)
         
         fig, ax = plt.subplots(figsize=(10, 8))
         
+        # Gaming-style heatmap
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                   xticklabels=self.best_model.classes_,
-                   yticklabels=self.best_model.classes_, ax=ax)
-        ax.set_title(f'Matriz de Confusión - {self.best_model_name}', 
-                    fontsize=14, fontweight='bold')
-        ax.set_ylabel('Valor Real')
-        ax.set_xlabel('Valor Predicho')
+                xticklabels=self.best_model.classes_,
+                yticklabels=self.best_model.classes_, 
+                ax=ax, annot_kws={'color': 'white', 'weight': 'bold', 'size': 12},
+                cbar_kws={"shrink": 0.8})
         
+        ax.set_ylabel('Valor Real', color=GAMING_COLORS['light_text'], fontsize=12)
+        ax.set_xlabel('Valor Predicho', color=GAMING_COLORS['light_text'], fontsize=12)
+        
+        # Style the heatmap to match gaming theme
+        ax.tick_params(colors=GAMING_COLORS['light_text'])
+        cbar = ax.collections[0].colorbar
+        cbar.ax.yaxis.set_tick_params(color=GAMING_COLORS['text'])
+        cbar.outline.set_edgecolor(GAMING_COLORS['primary'])
+        plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color=GAMING_COLORS['text'])
+        
+        self._apply_gaming_style(fig, f'MATRIZ DE CONFUSIÓN - {self.best_model_name.upper()}')
         plt.tight_layout()
-        plt.savefig('visualizations/confusion_matrix.png', dpi=300, bbox_inches='tight')
+        plt.savefig('visualizations/confusion_matrix.png', dpi=300, bbox_inches='tight',
+                    facecolor=GAMING_COLORS['dark_bg'])
         print("Matriz de confusión guardada: visualizations/confusion_matrix.png")
         
         return cm
     
     def plot_model_comparison(self, comparison_df):
-        """Visualiza comparación de modelos"""
-        fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+        """Visualiza comparación de modelos con estilo gaming"""
+        fig, axes = plt.subplots(1, 2, figsize=(16, 8))
         
-        # Gráfico 1: Comparación de métricas
+        # Gráfico 1: Comparación de métricas - Gaming bars
         metrics = ['Test Acc', 'Precision', 'Recall', 'F1-Score']
         x = np.arange(len(comparison_df))
         width = 0.2
         
-        for i, metric in enumerate(metrics):
-            axes[0].bar(x + i*width, comparison_df[metric], width, 
-                       label=metric, alpha=0.8)
+        colors = [GAMING_COLORS['primary'], GAMING_COLORS['secondary'], 
+                GAMING_COLORS['accent'], '#FFAA00']
         
-        axes[0].set_xlabel('Modelo')
-        axes[0].set_ylabel('Score')
-        axes[0].set_title('Comparación de Métricas por Modelo', fontweight='bold')
+        for i, (metric, color) in enumerate(zip(metrics, colors)):
+            bars = axes[0].bar(x + i*width, comparison_df[metric], width, 
+                    label=metric, alpha=0.8, color=color,
+                    edgecolor='white', linewidth=1.5)
+            
+            # Add value labels on bars
+            for bar in bars:
+                height = bar.get_height()
+                axes[0].text(bar.get_x() + bar.get_width()/2, height + 0.01,
+                            f'{height:.3f}', ha='center', va='bottom',
+                            fontweight='bold', color=GAMING_COLORS['highlight'],
+                            bbox=dict(boxstyle="round,pad=0.2",
+                                    facecolor=GAMING_COLORS['dark_bg'],
+                                    edgecolor=GAMING_COLORS['primary'],
+                                    alpha=0.8))
+        
+        axes[0].set_xlabel('Modelo', color=GAMING_COLORS['light_text'], fontsize=12)
+        axes[0].set_ylabel('Score', color=GAMING_COLORS['light_text'], fontsize=12)
         axes[0].set_xticks(x + width * 1.5)
-        axes[0].set_xticklabels(comparison_df['Model'], rotation=45, ha='right')
-        axes[0].legend()
-        axes[0].grid(axis='y', alpha=0.3)
+        axes[0].set_xticklabels(comparison_df['Model'], rotation=45, ha='right',
+                            color=GAMING_COLORS['light_text'])
+        axes[0].legend(facecolor=GAMING_COLORS['card_bg'], 
+                    edgecolor=GAMING_COLORS['primary'],
+                    labelcolor=GAMING_COLORS['text'])
+        axes[0].grid(axis='y', alpha=0.3, color=GAMING_COLORS['grid'])
         
-        # Gráfico 2: Train vs Test Accuracy
-        axes[1].scatter(comparison_df['Train Acc'], comparison_df['Test Acc'], 
-                       s=200, alpha=0.6, c=range(len(comparison_df)), cmap='viridis')
+        # Gráfico 2: Train vs Test Accuracy - Gaming scatter
+        scatter = axes[1].scatter(comparison_df['Train Acc'], comparison_df['Test Acc'], 
+                    s=200, alpha=0.8, c=range(len(comparison_df)), 
+                    cmap='viridis', edgecolors='white', linewidth=2)
         
         for idx, row in comparison_df.iterrows():
             axes[1].annotate(row['Model'], 
-                           (row['Train Acc'], row['Test Acc']),
-                           xytext=(5, 5), textcoords='offset points')
+                        (row['Train Acc'], row['Test Acc']),
+                        xytext=(8, 8), textcoords='offset points',
+                        color=GAMING_COLORS['highlight'],
+                        bbox=dict(boxstyle="round,pad=0.3",
+                                facecolor=GAMING_COLORS['dark_bg'],
+                                edgecolor=GAMING_COLORS['primary'],
+                                alpha=0.8))
         
         # Línea de referencia (overfitting)
         max_acc = max(comparison_df['Train Acc'].max(), comparison_df['Test Acc'].max())
-        axes[1].plot([0, max_acc], [0, max_acc], 'r--', alpha=0.5, label='Perfect fit')
+        axes[1].plot([0, max_acc], [0, max_acc], '--', alpha=0.7, 
+                    color=GAMING_COLORS['accent'], linewidth=2, label='Perfect fit')
         
-        axes[1].set_xlabel('Train Accuracy')
-        axes[1].set_ylabel('Test Accuracy')
-        axes[1].set_title('Train vs Test Accuracy', fontweight='bold')
-        axes[1].legend()
-        axes[1].grid(alpha=0.3)
+        axes[1].set_xlabel('Train Accuracy', color=GAMING_COLORS['light_text'], fontsize=12)
+        axes[1].set_ylabel('Test Accuracy', color=GAMING_COLORS['light_text'], fontsize=12)
+        axes[1].legend(facecolor=GAMING_COLORS['card_bg'], 
+                    edgecolor=GAMING_COLORS['primary'],
+                    labelcolor=GAMING_COLORS['text'])
+        axes[1].grid(alpha=0.3, color=GAMING_COLORS['grid'])
         
+        self._apply_gaming_style(fig, "COMPARACIÓN DE MODELOS - ANÁLISIS DE RENDIMIENTO")
         plt.tight_layout()
-        plt.savefig('visualizations/model_comparison.png', dpi=300, bbox_inches='tight')
+        plt.savefig('visualizations/model_comparison.png', dpi=300, bbox_inches='tight',
+                    facecolor=GAMING_COLORS['dark_bg'])
         print("Comparación de modelos guardada: visualizations/model_comparison.png")
     
     def save_best_model(self, path='models/'):
