@@ -1,5 +1,5 @@
 """
-Análisis Exploratorio de Datos (EDA) - Gaming Theme FIXED
+Análisis Exploratorio de Datos (EDA)
 """
 
 import pandas as pd
@@ -17,6 +17,9 @@ GAMING_COLORS = {
     'card_bg': '#1A1A2E',      # Dark Card
     'grid': '#2A2A3E',         # Grid Lines
     'text': '#E0E0FF',         # Light Blue Text
+    'highlight': '#FFFFFF',      # Blanco para máximo contraste
+    'light_text': '#F0F0FF',     # Texto más claro
+    'medium_bg': '#252540',      # Fondo intermedio para mejor contraste
 }
 
 # Gaming palettes for different categories
@@ -36,16 +39,22 @@ class EDAAnalyzer:
         self.figures = []
         
     def _apply_gaming_style(self, fig, title):
-        """Apply gaming theme to figure - FIXED no emoji in title"""
+        """Apply theme to figure"""
         fig.patch.set_facecolor(GAMING_COLORS['dark_bg'])
         if hasattr(fig, 'axes'):
             for ax in fig.axes:
                 ax.set_facecolor(GAMING_COLORS['card_bg'])
+                
+                # Mejorar contraste de etiquetas
+                ax.xaxis.label.set_color(GAMING_COLORS['light_text'])  # Más contraste
+                ax.yaxis.label.set_color(GAMING_COLORS['light_text'])  # Más contraste
+                ax.tick_params(colors=GAMING_COLORS['light_text'], labelsize=10)
+                
+                # Mejorar título
                 if hasattr(ax, 'title'):
                     ax.title.set_color(GAMING_COLORS['primary'])
-                ax.xaxis.label.set_color(GAMING_COLORS['text'])
-                ax.yaxis.label.set_color(GAMING_COLORS['text'])
-                ax.tick_params(colors=GAMING_COLORS['text'])
+                    ax.title.set_fontweight('bold')
+                    ax.title.set_fontsize(12)
                 
                 # Style grid
                 ax.grid(True, alpha=0.3, color=GAMING_COLORS['grid'])
@@ -73,7 +82,7 @@ class EDAAnalyzer:
         print(self.df.describe())
         
     def plot_target_distribution(self):
-        """Visualiza la distribución de la variable objetivo - FIXED"""
+        """Visualiza la distribución de la variable objetivo"""
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
         fig.patch.set_facecolor(GAMING_COLORS['dark_bg'])
         
@@ -84,22 +93,27 @@ class EDAAnalyzer:
                           alpha=0.8)
         axes[0].set_title('DISTRIBUCIÓN DE ESTILOS DE JUEGO', 
                          fontsize=14, fontweight='bold', color=GAMING_COLORS['primary'])
-        axes[0].set_xlabel('Estilo de Juego', color=GAMING_COLORS['text'])
-        axes[0].set_ylabel('Jugadores', color=GAMING_COLORS['text'])
+        axes[0].set_xlabel('Estilo de Juego', color=GAMING_COLORS['light_text'])
+        axes[0].set_ylabel('Jugadores', color=GAMING_COLORS['light_text'])
         axes[0].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['text'])
         axes[0].tick_params(axis='y', colors=GAMING_COLORS['text'])
         
         # Add values on bars without emojis
         for i, v in enumerate(playstyle_counts.values):
-            axes[0].text(i, v + 30, str(v), ha='center', va='bottom', 
-                        fontweight='bold', color=GAMING_COLORS['primary'], fontsize=10)
+            axes[0].text(i, v + 30, f'{v}', ha='center', va='bottom',
+                        fontweight='bold', 
+                        color=GAMING_COLORS['highlight'],
+                        bbox=dict(boxstyle="round,pad=0.3",
+                                facecolor=GAMING_COLORS['dark_bg'],
+                                edgecolor=GAMING_COLORS['primary'],
+                                alpha=0.8))
         
-        # Gráfico de pastel gaming - FIXED labels
+        # Gráfico de pastel gaming
         wedges, texts, autotexts = axes[1].pie(playstyle_counts.values, 
                                               labels=playstyle_counts.index, 
                                               autopct='%1.1f%%', startangle=90,
                                               colors=PLAYSTYLE_PALETTE,
-                                              textprops={'color': GAMING_COLORS['text']})
+                                              textprops={'color': GAMING_COLORS['light_text']})
         
         # Style the pie chart
         for autotext in autotexts:
@@ -137,8 +151,8 @@ class EDAAnalyzer:
             
             ax.set_title(f'{var.replace("_", " ").title()}', 
                         fontweight='bold', color=GAMING_COLORS['primary'])
-            ax.set_xlabel(var.replace('_', ' ').title(), color=GAMING_COLORS['text'])
-            ax.set_ylabel('Frecuencia', color=GAMING_COLORS['text'])
+            ax.set_xlabel(var.replace('_', ' ').title(), color=GAMING_COLORS['light_text'])
+            ax.set_ylabel('Frecuencia', color=GAMING_COLORS['light_text'])
             
             # Gaming-style mean line
             mean_val = self.df[var].mean()
@@ -162,16 +176,17 @@ class EDAAnalyzer:
         
         # FIXED: Remove the mask to show full correlation matrix
         sns.heatmap(correlation_matrix, annot=True, fmt='.2f', 
-                   cmap='RdYlBu_r', center=0, square=True,
-                   linewidths=1, linecolor=GAMING_COLORS['dark_bg'],
-                   cbar_kws={"shrink": 0.8, "label": "Correlación"},
-                   ax=ax)  # Removed mask parameter
+           cmap='coolwarm', center=0, square=True,  # Cambiado a coolwarm
+           linewidths=1, linecolor=GAMING_COLORS['medium_bg'],  # Mejor contraste
+           annot_kws={'color': GAMING_COLORS['highlight'], 'weight': 'bold'},  # AÑADIDO
+           cbar_kws={"shrink": 0.8, "label": "Correlación"},
+           ax=ax) # Removed mask parameter
         
         ax.set_title('MATRIZ DE CORRELACIÓN - RADAR DE MÉTRICAS', 
                     fontsize=18, fontweight='bold', color=GAMING_COLORS['primary'], pad=20)
         
         # Style the heatmap
-        ax.tick_params(colors=GAMING_COLORS['text'], rotation=45)
+        ax.tick_params(colors=GAMING_COLORS['light_text'], rotation=45)
         cbar = ax.collections[0].colorbar
         cbar.ax.yaxis.set_tick_params(color=GAMING_COLORS['text'])
         cbar.outline.set_edgecolor(GAMING_COLORS['primary'])
@@ -193,7 +208,16 @@ class EDAAnalyzer:
                    for style in playstyles_sorted]
         
         bp = axes[0, 0].boxplot(box_data, labels=playstyles_sorted,
-                               patch_artist=True)
+                       patch_artist=True,
+                       boxprops=dict(linewidth=2),
+                       medianprops=dict(linewidth=2, color='white'), 
+                       whiskerprops=dict(linewidth=2),
+                       capprops=dict(linewidth=2),
+                       flierprops=dict(marker='o', 
+                                     markerfacecolor=GAMING_COLORS['accent'],  
+                                     markersize=4,
+                                     markeredgecolor=GAMING_COLORS['text'],  
+                                     alpha=0.6))
         
         # Style boxplot
         for patch, color in zip(bp['boxes'], PLAYSTYLE_PALETTE):
@@ -204,25 +228,30 @@ class EDAAnalyzer:
         
         axes[0, 0].set_title('HORAS DE JUEGO POR ESTILO', 
                            fontweight='bold', color=GAMING_COLORS['primary'])
-        axes[0, 0].set_xlabel('Estilo de Juego', color=GAMING_COLORS['text'])
-        axes[0, 0].set_ylabel('Horas Totales', color=GAMING_COLORS['text'])
-        axes[0, 0].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['text'])
-        axes[0, 0].tick_params(axis='y', colors=GAMING_COLORS['text'])
+        axes[0, 0].set_xlabel('Estilo de Juego', color=GAMING_COLORS['light_text'])
+        axes[0, 0].set_ylabel('Horas Totales', color=GAMING_COLORS['light_text'])
+        axes[0, 0].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['light_text'])
+        axes[0, 0].tick_params(axis='y', colors=GAMING_COLORS['light_text'])
         
         # 2. Win rate - Horizontal bars
         playstyle_winrate = self.df.groupby('playstyle')['win_rate'].mean().sort_values()
         bars = axes[0, 1].barh(list(playstyle_winrate.index), playstyle_winrate.values,
-                              color=PLAYSTYLE_PALETTE, edgecolor='white', alpha=0.8)
-        
+                      color=PLAYSTYLE_PALETTE, edgecolor='white', alpha=0.8)
+
+        # Añadir etiquetas mejoradas
         for bar, value in zip(bars, playstyle_winrate.values):
-            axes[0, 1].text(value + 0.01, bar.get_y() + bar.get_height()/2, 
-                           f'{value:.1%}', ha='left', va='center',
-                           fontweight='bold', color=GAMING_COLORS['primary'],
-                           fontsize=11)
+            axes[0, 1].text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2, 
+                        f'{value:.2f}', ha='left', va='center',
+                        fontweight='bold',
+                        color=GAMING_COLORS['highlight'],
+                        bbox=dict(boxstyle="round,pad=0.3",
+                                facecolor=GAMING_COLORS['dark_bg'],
+                                edgecolor=GAMING_COLORS['primary'],
+                                alpha=0.8))
         
         axes[0, 1].set_title('WIN RATE PROMEDIO', 
                            fontweight='bold', color=GAMING_COLORS['primary'])
-        axes[0, 1].set_xlabel('Tasa de Victoria', color=GAMING_COLORS['text'])
+        axes[0, 1].set_xlabel('Tasa de Victoria', color=GAMING_COLORS['light_text'])
         axes[0, 1].set_xlim(0, 1)
         
         # 3. Dificultad 
@@ -230,12 +259,22 @@ class EDAAnalyzer:
         # Reindex to match winrate order for consistency
         playstyle_difficulty = playstyle_difficulty.reindex(playstyle_winrate.index)
         
-        axes[1, 0].bar(playstyle_difficulty.index, playstyle_difficulty.values,
-                      color=PLAYSTYLE_PALETTE, alpha=0.8, edgecolor='white')
+        bars = axes[1, 0].bar(playstyle_difficulty.index, playstyle_difficulty.values,
+                     color=PLAYSTYLE_PALETTE, alpha=0.8, edgecolor='white')
+        
+        for bar, value in zip(bars, playstyle_difficulty.values):
+            axes[1, 0].text(bar.get_x() + bar.get_width()/2, value + 0.1, 
+                        f'{value:.1f}', ha='center', va='bottom',
+                        fontweight='bold',
+                        color=GAMING_COLORS['highlight'],
+                        bbox=dict(boxstyle="round,pad=0.3",
+                                facecolor=GAMING_COLORS['dark_bg'],
+                                edgecolor=GAMING_COLORS['primary'],
+                                alpha=0.8))
         axes[1, 0].set_title('NIVEL DE DIFICULTAD', 
                            fontweight='bold', color=GAMING_COLORS['primary'])
-        axes[1, 0].set_ylabel('Dificultad Promedio', color=GAMING_COLORS['text'])
-        axes[1, 0].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['text'])
+        axes[1, 0].set_ylabel('Dificultad Promedio', color=GAMING_COLORS['light_text'])
+        axes[1, 0].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['light_text'])
         axes[1, 0].tick_params(axis='y', colors=GAMING_COLORS['text'])
         
         # 4. Logros 
@@ -247,13 +286,18 @@ class EDAAnalyzer:
         
         for bar, value in zip(bars, playstyle_achievements.values):
             axes[1, 1].text(bar.get_x() + bar.get_width()/2, value + 2, 
-                           f'{value:.0f} logros', ha='center', va='bottom',
-                           fontweight='bold', color=GAMING_COLORS['primary'])
+                        f'{value:.0f}', ha='center', va='bottom',
+                        fontweight='bold', 
+                        color=GAMING_COLORS['highlight'],  # Color de alto contraste
+                        bbox=dict(boxstyle="round,pad=0.3",  # AÑADIDO: fondo
+                                facecolor=GAMING_COLORS['dark_bg'],
+                                edgecolor=GAMING_COLORS['primary'],
+                                alpha=0.8))
         
         axes[1, 1].set_title('LOGROS DESBLOQUEADOS', 
                            fontweight='bold', color=GAMING_COLORS['primary'])
-        axes[1, 1].set_ylabel('Logros Promedio', color=GAMING_COLORS['text'])
-        axes[1, 1].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['text'])
+        axes[1, 1].set_ylabel('Logros Promedio', color=GAMING_COLORS['light_text'])
+        axes[1, 1].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['light_text'])
         axes[1, 1].tick_params(axis='y', colors=GAMING_COLORS['text'])
         
         self._apply_gaming_style(fig, "PERFIL DE ESTILOS DE JUEGO")
@@ -274,16 +318,20 @@ class EDAAnalyzer:
         
         axes[0].set_title('ESTILOS DE COMBATE', 
                          fontweight='bold', color=GAMING_COLORS['primary'])
-        axes[0].set_xlabel('Estilo de Combate', color=GAMING_COLORS['text'])
-        axes[0].set_ylabel('Jugadores', color=GAMING_COLORS['text'])
-        axes[0].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['text'])
-        axes[0].tick_params(axis='y', colors=GAMING_COLORS['text'])
+        axes[0].set_xlabel('Estilo de Combate', color=GAMING_COLORS['light_text'])
+        axes[0].set_ylabel('Jugadores', color=GAMING_COLORS['light_text'])
+        axes[0].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['light_text'])
+        axes[0].tick_params(axis='y', colors=GAMING_COLORS['light_text'])
         
         # Add values without emojis
         for i, (style, count) in enumerate(combat_counts.items()):
-            axes[0].text(i, count + 50, str(count), 
+            axes[0].text(i, count + 50, f'{count}', 
                         ha='center', va='bottom', fontweight='bold',
-                        color=GAMING_COLORS['primary'], fontsize=10)
+                        color=GAMING_COLORS['highlight'],
+                        bbox=dict(boxstyle="round,pad=0.3",
+                                facecolor=GAMING_COLORS['dark_bg'],
+                                edgecolor=GAMING_COLORS['primary'],
+                                alpha=0.8))
         
         # 2. Heatmap de relación estilos de juego vs combate - FIXED
         combat_playstyle = pd.crosstab(self.df['combat_style'], self.df['playstyle'])
@@ -292,8 +340,8 @@ class EDAAnalyzer:
         
         axes[1].set_title('DISTRIBUCIÓN ESTILO/COMBATE', 
                          fontweight='bold', color=GAMING_COLORS['primary'])
-        axes[1].set_xlabel('Estilo de Juego', color=GAMING_COLORS['text'])
-        axes[1].set_ylabel('Estilo de Combate', color=GAMING_COLORS['text'])
+        axes[1].set_xlabel('Estilo de Juego', color=GAMING_COLORS['light_text'])
+        axes[1].set_ylabel('Estilo de Combate', color=GAMING_COLORS['light_text'])
         axes[1].tick_params(colors=GAMING_COLORS['text'])
         
         self._apply_gaming_style(fig, "ANÁLISIS DE ESTILOS DE COMBATE")
@@ -316,10 +364,10 @@ class EDAAnalyzer:
                                         edgecolors='white', linewidth=0.5)
             axes[0, 0].set_title('ENGAGEMENT VS TIEMPO', 
                                fontweight='bold', color=GAMING_COLORS['primary'])
-            axes[0, 0].set_xlabel('Horas de Juego', color=GAMING_COLORS['text'])
-            axes[0, 0].set_ylabel('Puntaje de Engagement', color=GAMING_COLORS['text'])
+            axes[0, 0].set_xlabel('Horas de Juego', color=GAMING_COLORS['light_text'])
+            axes[0, 0].set_ylabel('Puntaje de Engagement', color=GAMING_COLORS['light_text'])
             cbar = plt.colorbar(scatter, ax=axes[0, 0])
-            cbar.set_label('Nivel de Habilidad', color=GAMING_COLORS['text'])
+            cbar.set_label('Nivel de Habilidad', color=GAMING_COLORS['light_text'])
             cbar.ax.tick_params(colors=GAMING_COLORS['text'])
         
         # 2. Sesiones vs Logros con tendencia - FIXED
@@ -341,8 +389,8 @@ class EDAAnalyzer:
             
             axes[0, 1].set_title('SESIONES VS LOGROS', 
                                fontweight='bold', color=GAMING_COLORS['primary'])
-            axes[0, 1].set_xlabel('Sesiones por Semana', color=GAMING_COLORS['text'])
-            axes[0, 1].set_ylabel('Logros Desbloqueados', color=GAMING_COLORS['text'])
+            axes[0, 1].set_xlabel('Sesiones por Semana', color=GAMING_COLORS['light_text'])
+            axes[0, 1].set_ylabel('Logros Desbloqueados', color=GAMING_COLORS['light_text'])
             axes[0, 1].legend(facecolor=GAMING_COLORS['card_bg'])
         
         # 3. Riesgo de abandono - Donut chart FIXED with labels
@@ -353,7 +401,7 @@ class EDAAnalyzer:
                                                  colors=RISK_PALETTE,
                                                  wedgeprops={'edgecolor': 'white', 
                                                            'linewidth': 2},
-                                                 textprops={'color': GAMING_COLORS['text']})  # FIXED: Add text color
+                                                 textprops={'color': GAMING_COLORS['light_text']})  # FIXED: Add text color
         
         # Style the labels and percentages
         for text in texts:
@@ -376,7 +424,17 @@ class EDAAnalyzer:
         
         # Only plot if we have data
         if any(len(data) > 0 for data in pvp_data):
-            bp = axes[1, 1].boxplot(pvp_data, labels=playstyles_sorted, patch_artist=True)
+            bp = axes[1, 1].boxplot(pvp_data, labels=playstyles_sorted, 
+                       patch_artist=True,
+                       boxprops=dict(linewidth=2),
+                       medianprops=dict(linewidth=2, color='white'),  # FIJADO
+                       whiskerprops=dict(linewidth=2),
+                       capprops=dict(linewidth=2),
+                       flierprops=dict(marker='o', 
+                                     markerfacecolor=GAMING_COLORS['accent'],  # FIJADO
+                                     markersize=4,
+                                     markeredgecolor=GAMING_COLORS['text'],  # FIJADO
+                                     alpha=0.6))
             
             # Style boxplot
             for patch, color in zip(bp['boxes'], PLAYSTYLE_PALETTE):
@@ -387,9 +445,9 @@ class EDAAnalyzer:
             
             axes[1, 1].set_title('PARTIDAS PvP POR ESTILO', 
                                fontweight='bold', color=GAMING_COLORS['primary'])
-            axes[1, 1].set_xlabel('Estilo de Juego', color=GAMING_COLORS['text'])
-            axes[1, 1].set_ylabel('Partidas PvP', color=GAMING_COLORS['text'])
-            axes[1, 1].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['text'])
+            axes[1, 1].set_xlabel('Estilo de Juego', color=GAMING_COLORS['light_text'])
+            axes[1, 1].set_ylabel('Partidas PvP', color=GAMING_COLORS['light_text'])
+            axes[1, 1].tick_params(axis='x', rotation=15, colors=GAMING_COLORS['light_text'])
             axes[1, 1].tick_params(axis='y', colors=GAMING_COLORS['text'])
         
         self._apply_gaming_style(fig, "ANÁLISIS DE ENGAGEMENT Y RENDIMIENTO")
@@ -466,7 +524,7 @@ def main():
     # Generar reporte completo
     analyzer.generate_report()
     
-    print("\nVisualizaciones en la carpeta 'gaming_visualizations/'")
+    print("\nVisualizaciones en la carpeta 'visualizations/'")
     plt.show()
 
 if __name__ == "__main__":
