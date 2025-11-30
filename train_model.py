@@ -88,26 +88,44 @@ class GameplayModelTrainer:
         """Prepara los datos para entrenamiento"""
         print(f"\nPreparando datos para entrenamiento...")
         
-        # Características a usar
+        # Debug: Check what's available
+        print("DataFrame columns:", df.columns.tolist())
+        print("combat_style_encoded exists:", 'combat_style_encoded' in df.columns)
+        print("premium_user exists:", 'premium_user' in df.columns)
+        
+        # Características a usar - UPDATED to match your actual columns
         feature_cols = [
             'playtime_hours', 'sessions_per_week', 'avg_session_length',
             'achievements_unlocked', 'difficulty_level', 'win_rate',
             'pvp_matches', 'death_count', 'engagement_score', 'skill_level',
             'kd_ratio', 'play_intensity', 'commitment_score',
             'pvp_experience', 'achievement_rate', 'last_login_days_ago',
-            'combat_style_encoded', 'premium_user'
+            'combat_style_encoded', 'premium_user'  # These should work now
         ]
         
-        # Filtrar solo columnas que existen
-        feature_cols = [col for col in feature_cols if col in df.columns]
-        self.feature_names = feature_cols
+        # Verify all feature columns exist
+        missing_cols = [col for col in feature_cols if col not in df.columns]
+        if missing_cols:
+            print(f"ERROR: Missing columns: {missing_cols}")
+            # Remove missing columns
+            feature_cols = [col for col in feature_cols if col not in missing_cols]
+        else:
+            print("All feature columns found.")
+        
+        print(f"Using {len(feature_cols)} features: {feature_cols}")
+        
+        # Check for NaN values in features
+        print(f"NaN values in features: {df[feature_cols].isna().sum().sum()}")
         
         X = df[feature_cols]
         y = df[target_col]
         
-        # Dividir datos
+        # Store feature names for later use
+        self.feature_names = feature_cols
+        
+        # Split and STORE the data in class attributes
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
-            X, y, test_size=test_size, random_state=42, stratify=y
+            X, y, test_size=test_size, random_state=42
         )
         
         print(f"Datos divididos:")
@@ -115,6 +133,7 @@ class GameplayModelTrainer:
         print(f"   - Prueba: {self.X_test.shape}")
         print(f"   - Features: {len(feature_cols)}")
         
+        # Return for convenience, but the main data is now stored in self
         return self.X_train, self.X_test, self.y_train, self.y_test
     
     def train_random_forest(self, optimize=False):
@@ -316,23 +335,62 @@ class GameplayModelTrainer:
         fig, ax = plt.subplots(figsize=(10, 8))
         
         # Gaming-style heatmap
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+        sns.heatmap(cm, annot=True, fmt='d', cmap='viridis',
                 xticklabels=self.best_model.classes_,
                 yticklabels=self.best_model.classes_, 
-                ax=ax, annot_kws={'color': 'white', 'weight': 'bold', 'size': 12},
-                cbar_kws={"shrink": 0.8})
+                ax=ax, 
+                annot_kws={
+                    'color': 'white', 
+                    'weight': 'bold', 
+                    'size': 12,
+                    'ha': 'center',
+                    'va': 'center'
+                },
+                cbar_kws={
+                    "shrink": 0.8,
+                    "label": "Cantidad"
+                })
         
-        ax.set_ylabel('Valor Real', color=GAMING_COLORS['light_text'], fontsize=12)
-        ax.set_xlabel('Valor Predicho', color=GAMING_COLORS['light_text'], fontsize=12)
+        ax.set_ylabel('Valor Real', color=GAMING_COLORS['light_text'], fontsize=12, fontweight='bold')
+        ax.set_xlabel('Valor Predicho', color=GAMING_COLORS['light_text'], fontsize=12, fontweight='bold')
         
-        # Style the heatmap to match gaming theme
-        ax.tick_params(colors=GAMING_COLORS['light_text'])
+        # Style the heatmap to match gaming theme with better contrast
+        ax.tick_params(colors=GAMING_COLORS['light_text'], labelsize=10)
+        
+        # Style colorbar for better visibility
         cbar = ax.collections[0].colorbar
-        cbar.ax.yaxis.set_tick_params(color=GAMING_COLORS['text'])
+        cbar.ax.yaxis.set_tick_params(color=GAMING_COLORS['light_text'])
         cbar.outline.set_edgecolor(GAMING_COLORS['primary'])
-        plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color=GAMING_COLORS['text'])
+        cbar.ax.set_ylabel('Cantidad', color=GAMING_COLORS['light_text'], fontsize=10)
+        plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), 
+                color=GAMING_COLORS['light_text'], 
+                fontsize=9)
         
-        self._apply_gaming_style(fig, f'MATRIZ DE CONFUSIÓN - {self.best_model_name.upper()}')
+        # Apply gaming style but remove spines from the main ax to avoid cell borders
+        fig.patch.set_facecolor(GAMING_COLORS['dark_bg'])
+        ax.set_facecolor(GAMING_COLORS['card_bg'])
+        
+        # Style labels and ticks
+        ax.xaxis.label.set_color(GAMING_COLORS['light_text'])
+        ax.yaxis.label.set_color(GAMING_COLORS['light_text'])
+        ax.tick_params(colors=GAMING_COLORS['light_text'], labelsize=10)
+        
+        # Style title
+        ax.title.set_color(GAMING_COLORS['primary'])
+        ax.title.set_fontweight('bold')
+        ax.title.set_fontsize(12)
+        
+        # Style grid - remove for heatmap
+        ax.grid(False)
+        
+        # Remove spines from main axes (this fixes the cell border issue)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        
+        # Use text-only title to match EDA style
+        fig.suptitle(f'MATRIZ DE CONFUSIÓN - {self.best_model_name.upper()}', 
+                    fontsize=16, color=GAMING_COLORS['primary'], fontweight='bold')
+        
         plt.tight_layout()
         plt.savefig('visualizations/confusion_matrix.png', dpi=300, bbox_inches='tight',
                     facecolor=GAMING_COLORS['dark_bg'])
@@ -440,6 +498,24 @@ class GameplayModelTrainer:
         print(f"   - Modelo: {model_path}")
         print(f"   - Metadata: {metadata_path}")
     
+    def save_scaler(self, path='models/'):
+        """Guarda el scaler con todas las características"""
+        from sklearn.preprocessing import StandardScaler
+        import joblib
+        
+        # Create and fit scaler with all features
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(self.X_train)
+        
+        # Save the scaler
+        scaler_path = os.path.join(path, 'scaler.pkl')
+        joblib.dump(scaler, scaler_path)
+        print(f"Scaler guardado: {scaler_path}")
+        
+        # Also save feature names used for scaling
+        feature_names_path = os.path.join(path, 'scaler_feature_names.pkl')
+        joblib.dump(self.feature_names, feature_names_path)
+    
     def generate_classification_report(self):
         """Genera reporte detallado de clasificación"""
         y_pred = self.best_model.predict(self.X_test)
@@ -479,6 +555,9 @@ class GameplayModelTrainer:
         
         # Guardar mejor modelo
         self.save_best_model()
+
+        # Guardar scaler
+        self.save_scaler()
         
         print("\n" + "=" * 60)
         print("Entrenamiento completado.")
@@ -496,7 +575,7 @@ def main():
     # Cargar datos
     df = trainer.load_data()
     
-    # Preparar datos
+    # Preparar datos - this now stores X_train, X_test, etc. in the trainer
     trainer.prepare_data(df)
     
     # Entrenar y evaluar todos los modelos
