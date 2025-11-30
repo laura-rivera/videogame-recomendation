@@ -7,9 +7,9 @@
 
 ## 👥 Equipo de Desarrollo
 
-- **Laura Rivera** - 8-969-1184
-- **Marco Rodríguez** - 8-956-932
-- **David Tao** - 8-961-1083
+- **Laura Rivera**
+- **Marco Rodríguez**
+- **David Tao**
 
 **Profesor:** Euclides Samaniego  
 **Semestre:** II-2025
