@@ -1,80 +1,247 @@
-"""
-Aplicación Web - Sistema Inteligente de Recomendación para Videojuegos
-Interfaz de Usuario con Streamlit
-"""
-
+# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import sys
 import os
 
-# Añadir path para imports
+# ---------------------------------------------------------
+# Intentar importar el sistema de recomendaciones
+# ---------------------------------------------------------
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 try:
     from recommender_system import GameRecommender
-except:
-    st.error("⚠️ No se pudo cargar el sistema de recomendaciones. Asegúrate de haber entrenado el modelo primero.")
-    st.stop()
+except Exception as e:
+    # Si el import falla, guardamos el error para mostrarlo más abajo
+    RecommenderImportError = e
+    GameRecommender = None
+else:
+    RecommenderImportError = None
 
+# ---------------------------------------------------------
 # Configuración de la página
+# ---------------------------------------------------------
 st.set_page_config(
-    page_title="Sistema Inteligente de Recomendación",
+    page_title="Sistema Inteligente de Recomendación - Gaming",
     page_icon="🎮",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-# CSS personalizado
-st.markdown("""
-    <style>
-    .main {
-        padding: 0rem 1rem;
-    }
-    .stAlert {
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    .recommendation-card {
-        background-color: #f0f2f6;
-        padding: 1.5rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-        border-left: 5px solid #ff4b4b;
-    }
-    h1 {
-        color: #ff4b4b;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1rem;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# ---------------------------------------------------------
+# Paleta y constantes (manteniendo el "vibe" original)
+# ---------------------------------------------------------
+GAMING_COLORS = {
+    'primary': '#00FF88',      # Neon Green (accent)
+    'secondary': '#0088FF',    # Electric Blue
+    'accent': '#FF0088',       # Neon Pink
+    'dark_bg': '#0A0A12',      # Dark background
+    'card_bg': '#1A1A2E',      # Card background
+    'input_bg': '#141420',     # NEW: For input areas
+    'grid': '#2A2A3E',
+    'text': '#E0E8FF',
+    'highlight': '#FFFFFF',
+    'light_text': '#F0F5FF',
+    'medium_bg': '#252540',
+}
 
+PLAYSTYLE_PALETTE = ['#00FF88', '#0088FF', '#FF0088', '#FFAA00', '#AA00FF']
+COMBAT_PALETTE = ['#FF5555', '#55FF55', '#5555FF', '#FFFF55', '#FF55FF']
+
+# ---------------------------------------------------------
+# CSS moderno y mejoras de UX integradas
+# ---------------------------------------------------------
+st.markdown(f"""
+<style>
+    :root {{
+        --primary: {GAMING_COLORS['primary']};
+        --secondary: {GAMING_COLORS['secondary']};
+        --accent: {GAMING_COLORS['accent']};
+        --bg-dark: {GAMING_COLORS['dark_bg']};
+        --bg-card: {GAMING_COLORS['card_bg']};
+        --bg-medium: {GAMING_COLORS['medium_bg']};
+        --input-bg: {GAMING_COLORS['input_bg']}; /* New variable */
+        --text-main: {GAMING_COLORS['text']};
+        --text-light: {GAMING_COLORS['light_text']};
+    }}
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Rajdhani:wght@600&display=swap');
+
+    .stApp {{
+        background: radial-gradient(circle at 20% 0%, #141420 0%, var(--bg-dark) 80%);
+        color: var(--text-main);
+        font-family: "Inter", sans-serif;
+        letter-spacing: 0.2px;
+    }}
+
+    /* Headers */
+    h1, h2, h3 {{
+        font-family: "Rajdhani", sans-serif !important;
+        font-weight: 600 !important;
+        color: var(--primary) !important;
+        text-shadow: 0 0 6px rgba(0,255,200,0.22);
+        margin-bottom: 0.35rem;
+    }}
+    h1 {{ font-size: 2.2rem !important; }}
+    h2 {{ font-size: 1.6rem !important; }}
+    h3 {{ font-size: 1.15rem !important; }}
+
+    /* Cards */
+    .gaming-card {{
+        background: linear-gradient(135deg, var(--bg-card), #191927);
+        border-radius: 14px;
+        padding: 1.25rem;
+        border: 1px solid rgba(255,255,255,0.06);
+        box-shadow:
+            0 3px 8px rgba(0,0,0,0.45),
+            0 0 8px rgba(0,255,180,0.06);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        animation: fadeIn 0.35s ease;
+    }}
+    .gaming-card:hover {{
+        transform: translateY(-2px);
+        box-shadow:
+            0 6px 18px rgba(0,0,0,0.55),
+            0 0 12px rgba(0,255,200,0.12);
+    }}
+
+    /* Metric cards */
+    .metric-card {{
+        background: #0f1016;
+        padding: 1.1rem;
+        border-radius: 12px;
+        text-align: center;
+        border: 1px solid rgba(255,255,255,0.07);
+        box-shadow: 0 0 8px rgba(0,255,150,0.06);
+    }}
+    .metric-card h2 {{
+        font-family: "Rajdhani", sans-serif !important;
+        color: var(--accent);
+        font-size: 2.2rem; /* Increased size for value */
+        margin: 0.1rem 0;
+    }}
+    .metric-card h3 {{ 
+        color: var(--text-light); 
+        margin: 0; 
+        font-size: 1rem; /* Increased size for label */
+        font-weight: 400;
+    }}
+    .metric-card .sub-text {{ /* New class for the smallest text */
+        font-size: 0.75rem; 
+        color: #AFC3FF; 
+        margin-top: 4px;
+    }}
+
+    /* Buttons */
+    .stButton>button {{
+        background: var(--secondary) !important;
+        border-radius: 10px;
+        border: none;
+        color: white !important;
+        padding: 0.55rem 1.6rem;
+        font-weight: 600;
+        box-shadow: 0 0 12px rgba(0,136,255,0.22);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }}
+    .stButton>button:hover {{
+        transform: scale(1.03);
+        box-shadow: 0 0 20px rgba(0,136,255,0.36);
+        filter: brightness(1.1);
+    }}
+
+    /* Inputs & selects */
+    .stSelectbox>div>div, .stTextInput>div>input, .stCheckbox>label {{
+        background-color: var(--input-bg) !important; /* Changed to input_bg */
+        color: var(--text-main) !important;
+        border-radius: 8px !important;
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        transition: border-color 0.2s ease;
+    }}
+    .stSelectbox>div:focus-within>div, .stTextInput>div>input:focus {{
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 6px rgba(0,255,136,0.4);
+    }}
+
+    /* Slider Improvements - DUAL COLOR & LEGIBILITY FIX */
+    .stSlider>div>div>div[data-baseweb="slider"] {{
+        background: var(--bg-medium) !important; /* Inactive track */
+        height: 6px; 
+    }}
+    .stSlider>div>div>div>div[data-testid="stThumbValue"] {{
+        background-color: var(--secondary) !important; /* Filled portion */
+        border-radius: 999px;
+    }}
+    .stSlider>div>div>div>div[data-testid="stThumb"] {{
+        background-color: var(--primary) !important;
+        border: 3px solid var(--bg-dark) !important; 
+        box-shadow: 0 0 10px rgba(0,255,136,0.5);
+    }}
+    .stSlider>div>div>div>div[role="tooltip"] {{ /* FIX: Value Label Legibility */
+        background: var(--bg-dark) !important; 
+        color: var(--primary) !important;
+        border: 1px solid var(--primary) !important;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-weight: 700;
+        box-shadow: 0 0 6px rgba(0,255,136,0.3);
+        top: -30px !important;
+    }}
+
+    /* Input Area - NO CARD BLEND-IN */
+    .input-area-sleek {{
+        background: var(--input-bg);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid rgba(255,255,255,0.05);
+    }}
+
+    /* Expander */
+    .streamlit-expanderHeader {{
+        background-color: var(--input-bg) !important; /* Use a darker background */
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        padding: 10px 14px;
+    }}
+
+    /* Alerts */
+    .stAlert {{
+        background-color: var(--bg-medium) !important;
+        border-left: 4px solid var(--accent) !important;
+        border-radius: 8px;
+    }}
+
+    /* Footer tweaks */
+    footer {{
+        visibility: hidden;
+    }}
+
+    /* Animations */
+    @keyframes fadeIn {{
+        from {{ opacity: 0; transform: translateY(6px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# Carga del modelo con caché
+# ---------------------------------------------------------
 @st.cache_resource
 def load_recommender():
-    """Carga el sistema de recomendaciones (con caché)"""
-    try:
-        return GameRecommender()
-    except Exception as e:
-        st.error(f"Error al cargar el modelo: {str(e)}")
-        return None
+    if GameRecommender is None:
+        raise RuntimeError(f"No se pudo importar GameRecommender: {RecommenderImportError}")
+    return GameRecommender()
 
+# ---------------------------------------------------------
+# Funciones para gráficos (limpios y legibles)
+# ---------------------------------------------------------
 def create_radar_chart(player_data, predicted_style, recommender):
-    """Crea un gráfico de radar comparando el jugador con el promedio"""
-    
-    categories = ['Tiempo de Juego', 'Sesiones/Semana', 'Dificultad', 
-                  'Win Rate', 'Logros', 'PvP']
-    
-    # Normalizar valores a escala 0-10
+    categories = ['Tiempo', 'Sesiones', 'Dificultad', 'Win Rate', 'Logros', 'PvP']
+    # Normalizar a 0-10
     player_values = [
         min(10, player_data['playtime_hours'] / 20),
         min(10, player_data['sessions_per_week']),
@@ -83,9 +250,8 @@ def create_radar_chart(player_data, predicted_style, recommender):
         min(10, player_data['achievements_unlocked'] / 10),
         min(10, player_data['pvp_matches'] / 40)
     ]
-    
-    # Valores promedio para el estilo predicho
-    ref_stats = recommender.reference_stats.get(predicted_style, {})
+
+    ref_stats = getattr(recommender, 'reference_stats', {}).get(predicted_style, {})
     avg_values = [
         min(10, ref_stats.get('playtime_hours', 100) / 20),
         min(10, ref_stats.get('sessions_per_week', 8)),
@@ -94,74 +260,89 @@ def create_radar_chart(player_data, predicted_style, recommender):
         min(10, ref_stats.get('achievements_unlocked', 60) / 10),
         min(10, ref_stats.get('pvp_matches', 150) / 40)
     ]
-    
+
     fig = go.Figure()
-    
+
     fig.add_trace(go.Scatterpolar(
         r=player_values,
         theta=categories,
         fill='toself',
         name='Tu Perfil',
-        line=dict(color='#ff4b4b', width=2)
+        line=dict(color=GAMING_COLORS['primary'], width=3),
+        fillcolor='rgba(0,255,136,0.22)',
+        hovertemplate='%{theta}: %{r:.2f}<extra></extra>'
     ))
-    
+
     fig.add_trace(go.Scatterpolar(
         r=avg_values,
         theta=categories,
         fill='toself',
         name=f'Promedio {predicted_style}',
-        line=dict(color='#1f77b4', width=2),
-        opacity=0.6
+        line=dict(color=GAMING_COLORS['secondary'], width=2),
+        fillcolor='rgba(0,136,255,0.14)',
+        hovertemplate='%{theta}: %{r:.2f}<extra></extra>'
     ))
-    
+
     fig.update_layout(
         polar=dict(
+            bgcolor=GAMING_COLORS['input_bg'], # Use the slightly lighter background here
             radialaxis=dict(
-                visible=True,
-                range=[0, 10]
-            )),
+                visible=True, 
+                range=[0, 10], 
+                gridcolor='rgba(255,255,255,0.15)', # Lighter, fainter grid
+                linecolor='rgba(255,255,255,0.15)',
+                color=GAMING_COLORS['light_text'] # Brighter axis text
+            ),
+            angularaxis=dict(
+                color=GAMING_COLORS['text'], 
+                gridcolor='rgba(255,255,255,0.15)'
+            )
+        ),
+        paper_bgcolor=GAMING_COLORS['dark_bg'],
+        font=dict(color=GAMING_COLORS['text']),
         showlegend=True,
-        title="Comparación con Jugadores de tu Estilo",
-        height=450
+        height=420,
+        margin=dict(l=20, r=20, t=60, b=10)
     )
-    
+
     return fig
 
 def create_probability_chart(probabilities):
-    """Crea gráfico de probabilidades por estilo"""
-    
     styles = list(probabilities.keys())
-    probs = list(probabilities.values())
-    
-    colors = ['#ff4b4b' if p == max(probs) else '#1f77b4' for p in probs]
-    
+    probs = [p * 100 for p in probabilities.values()]
+
     fig = go.Figure(data=[
         go.Bar(
             x=styles,
-            y=[p * 100 for p in probs],
-            marker_color=colors,
-            text=[f'{p:.1%}' for p in probs],
-            textposition='auto',
+            y=probs,
+            marker=dict(
+                color='rgba(0, 136, 255, 0.7)', # Base color blue/secondary
+                line=dict(width=1.5, color='rgba(0, 255, 136, 0.5)') # Primary neon border
+            ),
+            text=[f'{p:.1f}%' for p in probs],
+            textposition='outside',
+            textfont=dict(color=GAMING_COLORS['highlight'], size=12, family='Rajdhani, Arial')
         )
     ])
-    
+
     fig.update_layout(
-        title="Probabilidad por Estilo de Juego",
-        xaxis_title="Estilo",
-        yaxis_title="Probabilidad (%)",
-        height=400,
+        title=dict(text="Probabilidad por Estilo", font=dict(color=GAMING_COLORS['primary'], size=15)),
+        xaxis=dict(tickfont=dict(color=GAMING_COLORS['text']), gridcolor=GAMING_COLORS['grid']),
+        yaxis=dict(title="%", tickfont=dict(color=GAMING_COLORS['text']), gridcolor=GAMING_COLORS['grid']),
+        paper_bgcolor=GAMING_COLORS['dark_bg'],
+        plot_bgcolor=GAMING_COLORS['card_bg'],
+        height=360,
+        margin=dict(l=40, r=20, t=60, b=40),
         showlegend=False
     )
-    
+
     return fig
 
 def create_metrics_comparison(player_data, predicted_style, recommender):
-    """Crea comparación de métricas"""
-    
-    ref_stats = recommender.reference_stats.get(predicted_style, {})
-    
+    ref_stats = getattr(recommender, 'reference_stats', {}).get(predicted_style, {})
+
     metrics_data = {
-        'Métrica': ['Horas', 'Sesiones/Sem', 'Dificultad', 'Win Rate', 'Logros'],
+        'Métrica': ['Horas', 'Sesiones/Sem', 'Dificultad', 'Win Rate (%)', 'Logros'],
         'Tu Valor': [
             player_data['playtime_hours'],
             player_data['sessions_per_week'],
@@ -177,169 +358,149 @@ def create_metrics_comparison(player_data, predicted_style, recommender):
             ref_stats.get('achievements_unlocked', 60)
         ]
     }
-    
+
     df = pd.DataFrame(metrics_data)
-    
+
     fig = go.Figure()
-    
     fig.add_trace(go.Bar(
         name='Tu Perfil',
         x=df['Métrica'],
         y=df['Tu Valor'],
-        marker_color='#ff4b4b'
+        marker_color=GAMING_COLORS['primary'],
+        text=df['Tu Valor'].apply(lambda v: f'{v:.0f}' if isinstance(v, (int,float)) else v),
+        textposition='auto'
     ))
-    
     fig.add_trace(go.Bar(
         name=f'Promedio {predicted_style}',
         x=df['Métrica'],
         y=df['Promedio'],
-        marker_color='#1f77b4'
+        marker_color=GAMING_COLORS['secondary'],
+        text=df['Promedio'].apply(lambda v: f'{v:.0f}' if isinstance(v, (int,float)) else v),
+        textposition='auto'
     ))
-    
+
     fig.update_layout(
-        title="Comparación de Métricas Clave",
+        title=dict(text="Comparación de Métricas Clave", font=dict(color=GAMING_COLORS['primary'], size=15)),
         barmode='group',
-        height=400,
-        xaxis_title="",
-        yaxis_title="Valor"
+        paper_bgcolor=GAMING_COLORS['dark_bg'],
+        plot_bgcolor=GAMING_COLORS['card_bg'],
+        height=380,
+        margin=dict(l=20, r=20, t=60, b=30)
     )
-    
+
     return fig
 
+def create_style_distribution_chart(recommender):
+    # Si el recommender proporciona distribución real, usarla; si no, usar counts simulados
+    if hasattr(recommender, 'style_distribution') and recommender.style_distribution:
+        style_counts = recommender.style_distribution
+    else:
+        style_counts = {style: np.random.randint(1500, 2500) for style in getattr(recommender, 'classes', ['Aggressive','Strategic','Casual','Explorer','Competitive'])}
+
+    fig = go.Figure(data=[
+        go.Pie(
+            labels=list(style_counts.keys()),
+            values=list(style_counts.values()),
+            marker=dict(colors=PLAYSTYLE_PALETTE),
+            textinfo='percent+label',
+            hole=0.32
+        )
+    ])
+
+    fig.update_layout(
+        title=dict(text="Distribución de Estilos en el Dataset", font=dict(color=GAMING_COLORS['primary'], size=15)),
+        paper_bgcolor=GAMING_COLORS['dark_bg'],
+        plot_bgcolor=GAMING_COLORS['card_bg'],
+        height=460,
+        margin=dict(l=20, r=20, t=60, b=20)
+    )
+    return fig
+
+# ---------------------------------------------------------
+# Main
+# ---------------------------------------------------------
 def main():
-    """Función principal de la aplicación"""
-    
-    # Header
-    st.title("🎮 Sistema Inteligente de Recomendación para Videojuegos")
-    st.markdown("### Optimiza tu experiencia de juego con Inteligencia Artificial")
+    st.markdown("""
+    <div style='display:flex; justify-content:center;'>
+        <div style='display:flex; gap:1rem; align-items:center; max-width:800px; width:100%;'>
+            <div style='flex:1; text-align:center;'>
+                <h1 style='margin:0;'>🎮 Sistema Inteligente de Recomendación</h1>
+                <p style='color:#BFC8FF; margin-top:6px;'>Mejorando tu experiencia de juego con IA — análisis, estilo y recomendaciones.</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("---")
-    
-    # Cargar sistema
-    with st.spinner("Cargando sistema de IA..."):
-        recommender = load_recommender()
-    
-    if recommender is None:
-        st.error("❌ No se pudo cargar el sistema. Verifica que los modelos estén entrenados.")
-        st.info("💡 Ejecuta primero: `python train_model.py`")
+
+    # Cargar recommender con manejo de errores
+    try:
+        with st.spinner("🔄 Cargando sistema de recomendaciones..."):
+            recommender = load_recommender()
+    except Exception as e:
+        st.error("⚠️ No se pudo cargar el sistema de recomendaciones.")
+        st.exception(e)
         st.stop()
-    
-    # Sidebar - Información del sistema
+
+    # Sidebar con resumen del sistema
     with st.sidebar:
-        st.header("ℹ️ Información del Sistema")
+        st.markdown("<div style='padding:0.6rem 0.4rem;'>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='margin:6px 0 10px 0; color:{GAMING_COLORS['primary']}'>🎯 Sistema Inteligente</h3>", unsafe_allow_html=True)
         st.markdown(f"""
-        **Modelo:** {recommender.metadata['model_name']}
-        
-        **Precisión:** {recommender.metadata['test_accuracy']:.2%}
-        
-        **Características:** {len(recommender.feature_names)}
-        
-        **Estilos detectables:** {len(recommender.classes)}
-        """)
-        
+        <div class='gaming-card'>
+            <p style='margin:0.15rem 0;'><strong>Modelo:</strong> {recommender.metadata.get('model_name', 'N/A')}</p>
+            <p style='margin:0.15rem 0;'><strong>Precisión (test):</strong> {recommender.metadata.get('test_accuracy', 0):.2%}</p>
+            <p style='margin:0.15rem 0;'><strong>Features:</strong> {len(getattr(recommender, 'feature_names', []))}</p>
+            <p style='margin:0.15rem 0;'><strong>Estilos:</strong> {len(getattr(recommender, 'classes', []))}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.markdown("---")
-        st.markdown("### 📚 ¿Cómo funciona?")
-        st.markdown("""
-        1. Ingresa tu perfil de jugador
-        2. El sistema analiza tus datos
-        3. Predice tu estilo de juego
-        4. Genera recomendaciones personalizadas
-        """)
-        
+        st.markdown("<div class='gaming-card'><h4 style='margin-top:0;color:var(--text-light)'>🎯 Cómo usar</h4><ol style='padding-left:1rem;margin:0.2rem 0 0 0;'><li>Completa tu perfil</li><li>Analiza</li><li>Revisa recomendaciones</li></ol></div>", unsafe_allow_html=True)
         st.markdown("---")
-        st.markdown("### 🎯 Estilos de Juego")
-        st.markdown("""
-        - **Aggressive**: Combate directo
-        - **Strategic**: Planificación táctica
-        - **Casual**: Diversión relajada
-        - **Explorer**: Descubrimiento
-        - **Competitive**: Alto rendimiento
-        """)
-    
-    # Tabs principales
-    tab1, tab2, tab3 = st.tabs(["📊 Análisis de Perfil", "📈 Estadísticas", "❓ Ayuda"])
-    
+        st.markdown("<div style='text-align:center; font-size:12px; color:#AFC3FF; margin-top:0.6rem;'>UTP 2025 · Sistema Inteligente</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # Tabs
+    tab1, tab2, tab3 = st.tabs(["📊 Perfil", "📈 Estadísticas", "❓ Ayuda"])
+
+    # ---------- TAB 1: Perfil ----------
     with tab1:
-        st.header("📊 Perfil del Jugador")
+        st.markdown("<h2 style='margin:0;'>📊 Perfil del Jugador</h2><p style='margin:6px 0 1rem 0; color:#BFC8FF'>Introduce tus datos para generar recomendaciones personalizadas.</p>", unsafe_allow_html=True)
         
-        # Crear columnas para inputs
-        col1, col2, col3 = st.columns(3)
-        
+        st.markdown("---")
+
+        st.markdown("### ⚙️ Configuración de perfil")
+
+        col1, col2, col3 = st.columns([1,1,1], gap="large")
         with col1:
-            st.subheader("⏱️ Tiempo de Juego")
-            playtime = st.slider(
-                "Horas totales jugadas",
-                min_value=0, max_value=500, value=50, step=5,
-                help="Total de horas que has jugado"
-            )
-            
-            sessions = st.slider(
-                "Sesiones por semana",
-                min_value=1, max_value=20, value=5, step=1,
-                help="Cuántas veces juegas por semana"
-            )
-            
-            avg_length = st.slider(
-                "Duración promedio (horas)",
-                min_value=0.5, max_value=8.0, value=2.0, step=0.5,
-                help="Cuánto dura cada sesión en promedio"
-            )
-        
+            playtime = st.slider("Horas totales jugadas", 0, 500, 50, 5, help="Total aproximado de horas jugadas")
+            sessions = st.slider("Sesiones por semana", 1, 20, 5, 1, help="Cuántas sesiones sueles tener por semana")
+            avg_length = st.slider("Duración promedio (horas)", 0.5, 8.0, 2.0, 0.5, help="Duración media de una sesión")
         with col2:
-            st.subheader("🎯 Rendimiento")
-            difficulty = st.slider(
-                "Nivel de dificultad",
-                min_value=1, max_value=10, value=5, step=1,
-                help="Dificultad en la que juegas (1=Muy Fácil, 10=Extremo)"
-            )
-            
-            win_rate = st.slider(
-                "Tasa de victoria (%)",
-                min_value=0, max_value=100, value=50, step=5,
-                help="Porcentaje de partidas que ganas"
-            ) / 100
-            
-            achievements = st.slider(
-                "Logros desbloqueados",
-                min_value=0, max_value=200, value=25, step=5,
-                help="Cantidad de logros que has completado"
-            )
-        
+            difficulty = st.slider("Nivel de dificultad (1-10)", 1, 10, 5, 1, help="Dificultad en la que sueles jugar")
+            win_rate = st.slider("Tasa de victoria (%)", 0, 100, 50, 1, help="Porcentaje de victorias") / 100.0
+            achievements = st.slider("Logros desbloqueados", 0, 200, 25, 1, help="Cantidad de logros que completaste")
         with col3:
-            st.subheader("⚔️ Combate")
-            combat_style = st.selectbox(
-                "Estilo de combate favorito",
-                options=['Melee', 'Ranged', 'Magic', 'Hybrid', 'Stealth'],
-                help="Tu estilo de combate preferido"
-            )
-            
-            pvp_matches = st.slider(
-                "Partidas PvP",
-                min_value=0, max_value=1000, value=50, step=10,
-                help="Partidas jugador vs jugador"
-            )
-            
-            death_count = st.slider(
-                "Muertes totales",
-                min_value=0, max_value=1000, value=150, step=10,
-                help="Veces que has muerto en el juego"
-            )
-        
-        # Opciones adicionales
-        col4, col5 = st.columns(2)
+            combat_style = st.selectbox("Estilo de combate favorito", ['Melee','Ranged','Magic','Hybrid','Stealth'], help="Tipo de combate que prefieres")
+            pvp_matches = st.slider("Partidas PvP", 0, 2000, 50, 10, help="Número de partidas PvP")
+            death_count = st.slider("Muertes totales", 0, 2000, 150, 10, help="Veces que has muerto en total")
+
+        col4, col5 = st.columns([1,1], gap="large")
         with col4:
-            last_login = st.slider(
-                "Días desde último login",
-                min_value=0, max_value=30, value=2, step=1
-            )
+            last_login = st.slider("Días desde último login", 0, 365, 2, 1)
         with col5:
             premium = st.checkbox("Usuario Premium", value=False)
+
+        st.markdown("</div>", unsafe_allow_html=True)
         
         st.markdown("---")
-        
-        # Botón de análisis
-        if st.button("🔍 Analizar Perfil y Generar Recomendaciones", type="primary", use_container_width=True):
-            
-            # Preparar datos
+
+        center_col = st.columns([1, 2, 1])[1]  # Get the middle column
+        with center_col:
+            analyze_btn = st.button("🔍 ANALIZAR Y GENERAR RECOMENDACIONES", type="primary", use_container_width=True)
+
+        if analyze_btn:
             player_data = {
                 'playtime_hours': playtime,
                 'sessions_per_week': sessions,
@@ -353,268 +514,188 @@ def main():
                 'last_login_days_ago': last_login,
                 'premium_user': 1 if premium else 0
             }
-            
-            # Realizar análisis
+
             with st.spinner("🤖 Analizando tu perfil con IA..."):
-                result = recommender.analyze_player(player_data)
-            
-            st.success("✅ ¡Análisis completado!")
-            
-            # Mostrar resultados
-            st.markdown("## 🎯 Resultados del Análisis")
-            
-            # Métricas principales
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric(
-                    "Estilo Predicho",
-                    result['prediction']['predicted_style'],
-                    help="Tu estilo de juego identificado por la IA"
-                )
-            
-            with col2:
-                confidence = result['prediction']['confidence']
-                st.metric(
-                    "Confianza",
-                    f"{confidence:.1%}",
-                    help="Qué tan seguro está el modelo"
-                )
-            
-            with col3:
-                st.metric(
-                    "Score de Engagement",
-                    f"{result['metrics']['engagement_score']:.1f}",
-                    help="Tu nivel de compromiso con el juego"
-                )
-            
-            with col4:
-                st.metric(
-                    "Nivel de Habilidad",
-                    f"{result['metrics']['skill_level']:.1f}",
-                    help="Tu nivel de habilidad estimado (0-100)"
-                )
-            
-            st.markdown("---")
-            
-            # Visualizaciones
-            st.markdown("### 📊 Análisis Visual")
-            
-            viz_col1, viz_col2 = st.columns(2)
-            
-            with viz_col1:
-                # Gráfico de radar
-                radar_fig = create_radar_chart(
-                    player_data,
-                    result['prediction']['predicted_style'],
-                    recommender
-                )
-                st.plotly_chart(radar_fig, use_container_width=True)
-            
-            with viz_col2:
-                # Gráfico de probabilidades
-                prob_fig = create_probability_chart(
-                    result['prediction']['probabilities']
-                )
-                st.plotly_chart(prob_fig, use_container_width=True)
-            
-            # Comparación de métricas
-            metrics_fig = create_metrics_comparison(
-                player_data,
-                result['prediction']['predicted_style'],
-                recommender
-            )
-            st.plotly_chart(metrics_fig, use_container_width=True)
-            
-            st.markdown("---")
-            
-            # Recomendaciones
-            st.markdown("## 💡 Recomendaciones Personalizadas")
-            st.markdown("Basadas en análisis de datos y patrones de jugadores similares")
-            
-            for i, rec in enumerate(result['recommendations'], 1):
-                
-                # Emoji según prioridad
-                priority_emoji = {
-                    'Alta': '🔴',
-                    'Media': '🟡',
-                    'Baja': '🟢'
-                }
-                
-                with st.expander(
-                    f"{priority_emoji.get(rec['priority'], '⚪')} Recomendación {i}: {rec['title']}", 
-                    expanded=(i <= 3)
-                ):
-                    st.markdown(f"**📝 Justificación:**")
-                    st.info(rec['reason'])
-                    
-                    st.markdown(f"**💥 Impacto Esperado:**")
-                    st.success(rec['impact'])
-                    
-                    st.markdown(f"**🎯 Acción Recomendada:**")
-                    st.warning(rec['action'])
-                    
-                    st.markdown(f"**⚡ Prioridad:** {rec['priority']}")
-            
-            # Botón de descarga
-            st.markdown("---")
-            
-            # Crear reporte en texto
-            report_text = f"""
-REPORTE DE ANÁLISIS - SISTEMA INTELIGENTE DE RECOMENDACIÓN
-============================================================
+                # Asumimos que recommender.analyze_player devuelve diccionario con keys: prediction, metrics, recommendations
+                try:
+                    result = recommender.analyze_player(player_data)
+                except Exception as e:
+                    st.error("Error durante el análisis del perfil.")
+                    st.exception(e)
+                    result = None
 
-INFORMACIÓN DEL JUGADOR
------------------------
-Horas de Juego: {playtime}
-Sesiones por Semana: {sessions}
-Dificultad: {difficulty}
-Win Rate: {win_rate:.1%}
-Estilo de Combate: {combat_style}
+            if result:
+                st.success("✅ Análisis completado")
+                # Header de resultados
+                st.markdown(f"<div class='gaming-card' style='margin-top:8px;'><h2 style='margin:0;color:var(--primary)'>🎯 Resultados del Análisis</h2></div>", unsafe_allow_html=True)
 
-RESULTADOS DEL ANÁLISIS
------------------------
-Estilo Predicho: {result['prediction']['predicted_style']}
-Confianza: {result['prediction']['confidence']:.1%}
-Engagement Score: {result['metrics']['engagement_score']:.2f}
-Nivel de Habilidad: {result['metrics']['skill_level']:.2f}
+                # Métricas principales
+                c1, c2, c3, c4 = st.columns([1,1,1,1], gap="large")
+                predicted_style = result['prediction'].get('predicted_style', 'N/A')
+                confidence = result['prediction'].get('confidence', 0.0)
+                engagement = result['metrics'].get('engagement_score', 0.0)
+                skill = result['metrics'].get('skill_level', 0.0)
 
-RECOMENDACIONES
---------------
-"""
-            for i, rec in enumerate(result['recommendations'], 1):
-                report_text += f"\n{i}. {rec['title']}\n"
-                report_text += f"   Prioridad: {rec['priority']}\n"
-                report_text += f"   Razón: {rec['reason']}\n"
-                report_text += f"   Impacto: {rec['impact']}\n"
-                report_text += f"   Acción: {rec['action']}\n"
-            
-            st.download_button(
-                label="📥 Descargar Reporte Completo",
-                data=report_text,
-                file_name=f"reporte_gaming_{result['prediction']['predicted_style']}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-    
+                with c1:
+                    st.markdown(f"<div class='metric-card'><h3 style='margin:0;'>Estilo Predicho</h3><h2>{predicted_style}</h2><div class='sub-text'>Tu etiqueta de juego</div></div>", unsafe_allow_html=True)
+                with c2:
+                    st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Confianza</h3><h2>{confidence:.1%}</h2><div style='font-size:12px;color:#AFC3FF'>Precisión del modelo</div></div>", unsafe_allow_html=True)
+                with c3:
+                    st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Engagement</h3><h2>{engagement:.1f}</h2><div style='font-size:12px;color:#AFC3FF'>Nivel de compromiso</div></div>", unsafe_allow_html=True)
+                with c4:
+                    st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Habilidad</h3><h2>{skill:.1f}</h2><div style='font-size:12px;color:#AFC3FF'>Nivel estimado</div></div>", unsafe_allow_html=True)
+
+                st.markdown("---")
+
+                # Visualizaciones
+                viz_left, viz_right = st.columns([1,1], gap="large")
+
+                with viz_left:
+                    radar_fig = create_radar_chart(player_data, predicted_style, recommender)
+                    st.plotly_chart(radar_fig, use_container_width=True, config={'displayModeBar': False})
+
+                with viz_right:
+                    prob_fig = create_probability_chart(result['prediction'].get('probabilities', {predicted_style: 1.0}))
+                    st.plotly_chart(prob_fig, use_container_width=True, config={'displayModeBar': False})
+
+                # Comparación de métricas (full-width)
+                metrics_fig = create_metrics_comparison(player_data, predicted_style, recommender)
+                st.plotly_chart(metrics_fig, use_container_width=True, config={'displayModeBar': False})
+
+                st.markdown("---")
+
+                # Recomendaciones - se muestran como expanders con prioridad marcada
+                st.markdown("<h3 style='color:var(--primary); margin-bottom:6px;'>💡 Recomendaciones Personalizadas</h3>", unsafe_allow_html=True)
+
+                priority_colors = {'Alta': GAMING_COLORS['accent'], 'Media': GAMING_COLORS['secondary'], 'Baja': GAMING_COLORS['primary']}
+
+                for i, rec in enumerate(result.get('recommendations', []), 1):
+                    pr = rec.get('priority', 'Media')
+                    color = priority_colors.get(pr, GAMING_COLORS['primary'])
+                    icon = "🔥" if pr == 'Alta' else "✨" if pr == 'Media' else "⭐"
+                    with st.expander(f"Recomendación {i}", expanded=(i <= 2)):
+                        st.markdown(f"{icon} **{rec.get('title','Sin título')}** — <span style='color:{color};'>Prioridad: {pr}</span>", unsafe_allow_html=True)
+                        st.markdown(f"**📝 Justificación:**")
+                        st.markdown(f"<div style='background:{GAMING_COLORS['medium_bg']}; padding:10px; border-radius:6px; border-left:4px solid {color};'>{rec.get('reason','-')}</div>", unsafe_allow_html=True)
+                        st.markdown(f"**💥 Impacto esperado:**")
+                        st.markdown(f"<div style='background:{GAMING_COLORS['medium_bg']}; padding:10px; border-radius:6px; border-left:4px solid {GAMING_COLORS['primary']};'>{rec.get('impact','-')}</div>", unsafe_allow_html=True)
+                        st.markdown(f"**🎯 Acción recomendada:**")
+                        st.markdown(f"<div style='background:{GAMING_COLORS['medium_bg']}; padding:10px; border-radius:6px; border-left:4px solid {GAMING_COLORS['secondary']};'>{rec.get('action','-')}</div>", unsafe_allow_html=True)
+
+                # Descargar reporte de texto
+                report_lines = [
+                    "REPORTE - SISTEMA INTELIGENTE DE RECOMENDACIÓN",
+                    "=============================================",
+                    "",
+                    "== Información del Jugador ==",
+                    f"Horas de Juego: {playtime}",
+                    f"Sesiones/Semana: {sessions}",
+                    f"Dificultad: {difficulty}",
+                    f"Win Rate: {win_rate:.1%}",
+                    f"Estilo combate: {combat_style}",
+                    "",
+                    "== Resultados ==",
+                    f"Estilo predicho: {predicted_style}",
+                    f"Confianza: {confidence:.1%}",
+                    f"Engagement: {engagement:.2f}",
+                    f"Skill level: {skill:.2f}",
+                    "",
+                    "== Recomendaciones =="
+                ]
+                for idx, r in enumerate(result.get('recommendations', []), 1):
+                    report_lines += [
+                        f"{idx}. {r.get('title','-')}",
+                        f"   Prioridad: {r.get('priority','-')}",
+                        f"   Razón: {r.get('reason','-')}",
+                        f"   Impacto: {r.get('impact','-')}",
+                        f"   Acción: {r.get('action','-')}",
+                        ""
+                    ]
+                report_text = "\n".join(report_lines)
+
+                st.download_button(
+                    label="📥 Descargar reporte",
+                    data=report_text,
+                    file_name=f"reporte_gaming_{predicted_style}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+            else:
+                st.error("No se obtuvieron resultados del analizador.")
+
+    # ---------- TAB 2: Estadísticas del sistema ----------
     with tab2:
-        st.header("📈 Estadísticas del Sistema")
-        
-        st.markdown("### 🎯 Información del Modelo")
-        
-        col1, col2 = st.columns(2)
-        
+        st.markdown("<div class='gaming-card'><h2 style='margin:0;'>📈 Estadísticas del Sistema</h2><p style='margin:6px 0 0 0; color:#BFC8FF'>Métricas y distribución del dataset / modelo.</p></div>", unsafe_allow_html=True)
+
+        col1, col2 = st.columns([1,1], gap="large")
         with col1:
-            st.markdown(f"""
-            **Tipo de Modelo:** {recommender.metadata['model_name']}
-            
-            **Precisión en Test:** {recommender.metadata['test_accuracy']:.2%}
-            
-            **Precision:** {recommender.metadata['precision']:.2%}
-            
-            **Recall:** {recommender.metadata['recall']:.2%}
-            
-            **F1-Score:** {recommender.metadata['f1_score']:.2%}
-            """)
-        
+            st.markdown(f"<div class='gaming-card'><h4 style='margin:0 0 8px 0;'>Especificaciones Técnicas</h4><p style='margin:0.1rem 0;'><strong>Modelo:</strong> {recommender.metadata.get('model_name','N/A')}</p><p style='margin:0.1rem 0;'><strong>Precisión:</strong> {recommender.metadata.get('test_accuracy',0):.2%}</p><p style='margin:0.1rem 0;'><strong>Precision:</strong> {recommender.metadata.get('precision',0):.2%}</p><p style='margin:0.1rem 0;'><strong>Recall:</strong> {recommender.metadata.get('recall',0):.2%}</p></div>", unsafe_allow_html=True)
+
         with col2:
-            st.markdown(f"""
-            **Características Utilizadas:** {len(recommender.feature_names)}
-            
-            **Clases Detectables:** {len(recommender.classes)}
-            
-            **Fecha de Entrenamiento:** {recommender.metadata.get('timestamp', 'N/A')}
-            
-            **Dataset:** 10,000 jugadores
-            """)
-        
+            st.markdown(f"<div class='gaming-card'><h4 style='margin:0 0 8px 0;'>Configuración</h4><p style='margin:0.1rem 0;'><strong>Features usados:</strong> {len(getattr(recommender,'feature_names',[]))}</p><p style='margin:0.1rem 0;'><strong>Clases detectables:</strong> {len(getattr(recommender,'classes',[]))}</p><p style='margin:0.1rem 0;'><strong>Fecha entrenamiento:</strong> {recommender.metadata.get('timestamp','N/A')}</p></div>", unsafe_allow_html=True)
+
         st.markdown("---")
-        
-        st.markdown("### 📊 Distribución de Estilos (Dataset de Entrenamiento)")
-        
-        # Crear gráfico de distribución
-        style_counts = {style: 2000 for style in recommender.classes}  # Datos de ejemplo
-        
-        fig = px.pie(
-            values=list(style_counts.values()),
-            names=list(style_counts.keys()),
-            title="Distribución de Estilos en el Dataset"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
+        st.markdown("### 📊 Distribución de estilos")
+        dist_fig = create_style_distribution_chart(recommender)
+        st.plotly_chart(dist_fig, use_container_width=True, config={'displayModeBar': False})
+        st.markdown("---")
+
+        col3, col4, col5 = st.columns([1,1,1], gap="large")
+        with col3:
+            st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Precisión</h3><h2>{recommender.metadata.get('test_accuracy',0):.1%}</h2><div style='font-size:12px;color:#AFC3FF'>Exactitud global</div></div>", unsafe_allow_html=True)
+        with col4:
+            st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Precision</h3><h2>{recommender.metadata.get('precision',0):.1%}</h2><div style='font-size:12px;color:#AFC3FF'>Por clase</div></div>", unsafe_allow_html=True)
+        with col5:
+            st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Recall</h3><h2>{recommender.metadata.get('recall',0):.1%}</h2><div style='font-size:12px;color:#AFC3FF'>Sensibilidad</div></div>", unsafe_allow_html=True)
+
+    # ---------- TAB 3: Ayuda ----------
     with tab3:
-        st.header("❓ Ayuda y Documentación")
-        
-        st.markdown("""
-        ### 🎮 ¿Qué es este sistema?
-        
-        Este es un **Sistema Inteligente de Recomendación** diseñado para analizar
-        tu comportamiento como jugador y proporcionarte sugerencias personalizadas
-        para mejorar tu experiencia de juego.
-        
-        ### 🤖 ¿Cómo funciona?
-        
-        1. **Recopilación de Datos**: Ingresas información sobre tu comportamiento en el juego
-        2. **Análisis con IA**: El sistema usa Machine Learning para identificar patrones
-        3. **Predicción**: Clasifica tu estilo de juego usando un modelo entrenado
-        4. **Recomendaciones**: Genera sugerencias basadas en miles de perfiles similares
-        
-        ### 📊 Métricas Clave
-        
-        - **Tiempo de Juego**: Total de horas invertidas
-        - **Sesiones**: Frecuencia con la que juegas
-        - **Dificultad**: Nivel de desafío que prefieres
-        - **Win Rate**: Porcentaje de victorias
-        - **Engagement**: Nivel de compromiso calculado
-        - **Skill Level**: Habilidad estimada (0-100)
-        
-        ### 🎯 Estilos de Juego
-        
-        **Aggressive (Agresivo)**
-        - Prefiere combate directo
-        - Alta actividad PvP
-        - Dificultad elevada
-        
-        **Strategic (Estratégico)**
-        - Planificación cuidadosa
-        - Alto win rate
-        - Sesiones largas
-        
-        **Casual (Casual)**
-        - Juego relajado
-        - Sesiones cortas
-        - Dificultad baja-media
-        
-        **Explorer (Explorador)**
-        - Descubrimiento de contenido
-        - Muchos logros
-        - Tiempo de juego alto
-        
-        **Competitive (Competitivo)**
-        - Máximo rendimiento
-        - Muchas partidas PvP
-        - Dificultad máxima
-        
-        ### 🔒 Privacidad
-        
-        Todos los datos se procesan localmente. No se almacena información personal.
-        
-        ### 📧 Soporte
-        
-        **Autores:**
-        - Laura Rivera (8-969-1184)
-        - Marco Rodríguez (8-956-932)
-        - David Tao (8-961-1083)
-        
-        **Curso:** Sistemas Inteligentes - UTP
-        """)
-    
+        st.markdown("<div class='gaming-card'><h2 style='margin:0;'>❓ Ayuda y Documentación</h2><p style='margin:6px 0 0 0; color:#BFC8FF'>Guía rápida sobre el sistema.</p></div>", unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class='gaming-card'>
+            <h3 style='margin-top:0;color:var(--text-light)'>¿Qué es este sistema?</h3>
+            <p>Un sistema que analiza tu comportamiento como jugador y genera recomendaciones personalizadas basadas en patrones detectados por modelos de machine learning.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class='gaming-card'>
+            <h3 style='margin-top:0;color:var(--text-light)'>Métricas clave</h3>
+            <ul>
+                <li><strong>Tiempo de juego:</strong> Horas totales jugadas.</li>
+                <li><strong>Sesiones:</strong> Frecuencia semanal.</li>
+                <li><strong>Dificultad:</strong> Nivel jugado (1-10).</li>
+                <li><strong>Win Rate:</strong> Porcentaje de victorias.</li>
+                <li><strong>Engagement:</strong> Indicador de compromiso.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class='gaming-card'>
+            <h3 style='margin-top:0;color:var(--text-light)'>Autores</h3>
+            <div style='display:flex; gap:1rem;'>
+                <div style='flex:1; text-align:center;'>
+                    <h4 style='color:var(--primary); margin:0;'>Laura Rivera</h4><div style='font-size:12px;color:#AFC3FF'>8-969-1184</div>
+                </div>
+                <div style='flex:1; text-align:center;'>
+                    <h4 style='color:var(--secondary); margin:0;'>Marco Rodríguez</h4><div style='font-size:12px;color:#AFC3FF'>8-956-932</div>
+                </div>
+                <div style='flex:1; text-align:center;'>
+                    <h4 style='color:var(--accent); margin:0;'>David Tao</h4><div style='font-size:12px;color:#AFC3FF'>8-961-1083</div>
+                </div>
+            </div>
+            <p style='text-align:center; margin-top:8px; color:#AFC3FF'><strong>Curso:</strong> Sistemas Inteligentes - UTP 2025</p>
+        </div>
+        """, unsafe_allow_html=True)
+
     # Footer
     st.markdown("---")
-    st.markdown("""
-    <div style='text-align: center'>
-        <p>Sistema Inteligente de Recomendación para Videojuegos | UTP 2025</p>
-        <p>Desarrollado por: Laura Rivera, Marco Rodríguez, David Tao</p>
+    st.markdown(f"""
+    <div style='text-align:center; padding:1rem 0; color:#AFC3FF'>
+        <div style='font-weight:600; color:{GAMING_COLORS['text']};'>Sistema Inteligente de Recomendación para Videojuegos</div>
+        <div style='font-size:12px;'>UTP 2025 · Desarrollado por: Laura Rivera, Marco Rodríguez, David Tao</div>
     </div>
     """, unsafe_allow_html=True)
 
