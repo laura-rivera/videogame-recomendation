@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import sys
 import os
+import json
 
 # ---------------------------------------------------------
 # Intentar importar el sistema de recomendaciones
@@ -149,6 +150,39 @@ st.markdown(f"""
         transform: scale(1.03);
         box-shadow: 0 0 20px rgba(0,136,255,0.36);
         filter: brightness(1.1);
+    }}
+
+    /* Profile Buttons */
+    .profile-button-primary {{
+        background: var(--primary) !important;
+        border-radius: 10px;
+        border: none;
+        color: var(--bg-dark) !important;
+        padding: 0.75rem 2rem;
+        font-weight: 700;
+        font-size: 1.1rem;
+        box-shadow: 0 0 15px rgba(0,255,136,0.25);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }}
+    .profile-button-primary:hover {{
+        transform: scale(1.05);
+        box-shadow: 0 0 25px rgba(0,255,136,0.4);
+    }}
+
+    .profile-button-secondary {{
+        background: var(--accent) !important;
+        border-radius: 10px;
+        border: none;
+        color: white !important;
+        padding: 0.75rem 2rem;
+        font-weight: 700;
+        font-size: 1.1rem;
+        box-shadow: 0 0 15px rgba(255,0,136,0.25);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }}
+    .profile-button-secondary:hover {{
+        transform: scale(1.05);
+        box-shadow: 0 0 25px rgba(255,0,136,0.4);
     }}
 
     /* Inputs & selects */
@@ -417,6 +451,45 @@ def create_style_distribution_chart(recommender):
     return fig
 
 # ---------------------------------------------------------
+# Funciones para manejo de perfiles
+# ---------------------------------------------------------
+def get_default_player_data():
+    """Return default player data structure"""
+    return {
+        'playtime_hours': 50,
+        'sessions_per_week': 5,
+        'avg_session_length': 2.0,
+        'achievements_unlocked': 25,
+        'difficulty_level': 5,
+        'combat_style': 'Melee',
+        'win_rate': 0.5,
+        'pvp_matches': 50,
+        'death_count': 150,
+        'last_login_days_ago': 2,
+        'premium_user': 0
+    }
+
+def validate_profile_data(data):
+    """Validate uploaded profile data"""
+    required_fields = [
+        'playtime_hours', 'sessions_per_week', 'avg_session_length',
+        'achievements_unlocked', 'difficulty_level', 'combat_style',
+        'win_rate', 'pvp_matches', 'death_count', 'last_login_days_ago',
+        'premium_user'
+    ]
+    
+    for field in required_fields:
+        if field not in data:
+            return False, f"Missing required field: {field}"
+    
+    # Validate combat_style is one of expected values
+    valid_combat_styles = ['Melee', 'Ranged', 'Magic', 'Hybrid', 'Stealth']
+    if data['combat_style'] not in valid_combat_styles:
+        return False, f"Invalid combat_style. Must be one of: {', '.join(valid_combat_styles)}"
+    
+    return True, "Valid profile data"
+
+# ---------------------------------------------------------
 # Main
 # ---------------------------------------------------------
 def main():
@@ -470,37 +543,55 @@ def main():
         
         st.markdown("---")
 
-        st.markdown("### ⚙️ Configuración de perfil")
+        # Initialize session state for profile input method
+        if 'profile_input_method' not in st.session_state:
+            st.session_state.profile_input_method = None
 
-        col1, col2, col3 = st.columns([1,1,1], gap="large")
-        with col1:
-            playtime = st.slider("Horas totales jugadas", 0, 500, 50, 5, help="Total aproximado de horas jugadas")
-            sessions = st.slider("Sesiones por semana", 1, 20, 5, 1, help="Cuántas sesiones sueles tener por semana")
-            avg_length = st.slider("Duración promedio (horas)", 0.5, 8.0, 2.0, 0.5, help="Duración media de una sesión")
-        with col2:
-            difficulty = st.slider("Nivel de dificultad (1-10)", 1, 10, 5, 1, help="Dificultad en la que sueles jugar")
-            win_rate = st.slider("Tasa de victoria (%)", 0, 100, 50, 1, help="Porcentaje de victorias") / 100.0
-            achievements = st.slider("Logros desbloqueados", 0, 200, 25, 1, help="Cantidad de logros que completaste")
-        with col3:
-            combat_style = st.selectbox("Estilo de combate favorito", ['Melee','Ranged','Magic','Hybrid','Stealth'], help="Tipo de combate que prefieres")
-            pvp_matches = st.slider("Partidas PvP", 0, 2000, 50, 10, help="Número de partidas PvP")
-            death_count = st.slider("Muertes totales", 0, 2000, 150, 10, help="Veces que has muerto en total")
-
-        col4, col5 = st.columns([1,1], gap="large")
-        with col4:
-            last_login = st.slider("Días desde último login", 0, 365, 2, 1)
-        with col5:
-            premium = st.checkbox("Usuario Premium", value=False)
-
-        st.markdown("</div>", unsafe_allow_html=True)
+        # Profile input method selection
+        st.markdown("### 🎯 Selecciona cómo ingresar tu perfil")
         
+        col1, col2 = st.columns(2, gap="large")
+        
+        with col1:
+            if st.button("📝 Ingresar Perfil Manualmente", 
+                        use_container_width=True, 
+                        key="manual_btn"):
+                st.session_state.profile_input_method = "manual"
+        
+        with col2:
+            if st.button("📁 Cargar Perfil desde JSON", 
+                        use_container_width=True, 
+                        key="upload_btn"):
+                st.session_state.profile_input_method = "upload"
+
         st.markdown("---")
 
-        center_col = st.columns([1, 2, 1])[1]  # Get the middle column
-        with center_col:
-            analyze_btn = st.button("🔍 ANALIZAR Y GENERAR RECOMENDACIONES", type="primary", use_container_width=True)
+        player_data = None
 
-        if analyze_btn:
+        # Manual input section
+        if st.session_state.profile_input_method == "manual":
+            st.markdown("### ⚙️ Configuración de perfil manual")
+            
+            col1, col2, col3 = st.columns([1,1,1], gap="large")
+            with col1:
+                playtime = st.slider("Horas totales jugadas", 0, 500, 50, 5, help="Total aproximado de horas jugadas")
+                sessions = st.slider("Sesiones por semana", 1, 20, 5, 1, help="Cuántas sesiones sueles tener por semana")
+                avg_length = st.slider("Duración promedio (horas)", 0.5, 8.0, 2.0, 0.5, help="Duración media de una sesión")
+            with col2:
+                difficulty = st.slider("Nivel de dificultad (1-10)", 1, 10, 5, 1, help="Dificultad en la que sueles jugar")
+                win_rate = st.slider("Tasa de victoria (%)", 0, 100, 50, 1, help="Porcentaje de victorias") / 100.0
+                achievements = st.slider("Logros desbloqueados", 0, 200, 25, 1, help="Cantidad de logros que completaste")
+            with col3:
+                combat_style = st.selectbox("Estilo de combate favorito", ['Melee','Ranged','Magic','Hybrid','Stealth'], help="Tipo de combate que prefieres")
+                pvp_matches = st.slider("Partidas PvP", 0, 2000, 50, 10, help="Número de partidas PvP")
+                death_count = st.slider("Muertes totales", 0, 2000, 150, 10, help="Veces que has muerto en total")
+
+            col4, col5 = st.columns([1,1], gap="large")
+            with col4:
+                last_login = st.slider("Días desde último login", 0, 365, 2, 1)
+            with col5:
+                premium = st.checkbox("Usuario Premium", value=False)
+
             player_data = {
                 'playtime_hours': playtime,
                 'sessions_per_week': sessions,
@@ -515,113 +606,208 @@ def main():
                 'premium_user': 1 if premium else 0
             }
 
-            with st.spinner("🤖 Analizando tu perfil con IA..."):
-                # Asumimos que recommender.analyze_player devuelve diccionario con keys: prediction, metrics, recommendations
+        # Upload section
+        elif st.session_state.profile_input_method == "upload":
+            st.markdown("### 📁 Cargar perfil desde archivo JSON")
+            
+            uploaded_file = st.file_uploader("Selecciona un archivo JSON con tu perfil", type=['json'])
+            
+            if uploaded_file is not None:
                 try:
-                    result = recommender.analyze_player(player_data)
+                    # Read and parse the JSON file
+                    profile_data = json.load(uploaded_file)
+                    
+                    # Validate the profile data
+                    is_valid, message = validate_profile_data(profile_data)
+                    
+                    if is_valid:
+                        st.success("✅ Perfil cargado correctamente")
+                        player_data = profile_data
+                        
+                        # Display the loaded data
+                        with st.expander("📋 Ver datos cargados", expanded=True):
+                            st.json(profile_data)
+                    else:
+                        st.error(f"❌ Error en el archivo: {message}")
+                        st.info("""
+                        **Formato esperado:**
+                        ```json
+                        {
+                          "playtime_hours": 35,
+                          "sessions_per_week": 3,
+                          "avg_session_length": 1.2,
+                          "achievements_unlocked": 18,
+                          "difficulty_level": 3,
+                          "combat_style": "Melee",
+                          "win_rate": 0.38,
+                          "pvp_matches": 15,
+                          "death_count": 65,
+                          "last_login_days_ago": 5,
+                          "premium_user": 0
+                        }
+                        ```
+                        """)
+                        
+                except json.JSONDecodeError:
+                    st.error("❌ Error: El archivo no es un JSON válido")
                 except Exception as e:
-                    st.error("Error durante el análisis del perfil.")
-                    st.exception(e)
-                    result = None
-
-            if result:
-                st.success("✅ Análisis completado")
-                # Header de resultados
-                st.markdown(f"<div class='gaming-card' style='margin-top:8px;'><h2 style='margin:0;color:var(--primary)'>🎯 Resultados del Análisis</h2></div>", unsafe_allow_html=True)
-
-                # Métricas principales
-                c1, c2, c3, c4 = st.columns([1,1,1,1], gap="large")
-                predicted_style = result['prediction'].get('predicted_style', 'N/A')
-                confidence = result['prediction'].get('confidence', 0.0)
-                engagement = result['metrics'].get('engagement_score', 0.0)
-                skill = result['metrics'].get('skill_level', 0.0)
-
-                with c1:
-                    st.markdown(f"<div class='metric-card'><h3 style='margin:0;'>Estilo Predicho</h3><h2>{predicted_style}</h2><div class='sub-text'>Tu etiqueta de juego</div></div>", unsafe_allow_html=True)
-                with c2:
-                    st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Confianza</h3><h2>{confidence:.1%}</h2><div style='font-size:12px;color:#AFC3FF'>Precisión del modelo</div></div>", unsafe_allow_html=True)
-                with c3:
-                    st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Engagement</h3><h2>{engagement:.1f}</h2><div style='font-size:12px;color:#AFC3FF'>Nivel de compromiso</div></div>", unsafe_allow_html=True)
-                with c4:
-                    st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Habilidad</h3><h2>{skill:.1f}</h2><div style='font-size:12px;color:#AFC3FF'>Nivel estimado</div></div>", unsafe_allow_html=True)
-
-                st.markdown("---")
-
-                # Visualizaciones
-                viz_left, viz_right = st.columns([1,1], gap="large")
-
-                with viz_left:
-                    radar_fig = create_radar_chart(player_data, predicted_style, recommender)
-                    st.plotly_chart(radar_fig, use_container_width=True, config={'displayModeBar': False})
-
-                with viz_right:
-                    prob_fig = create_probability_chart(result['prediction'].get('probabilities', {predicted_style: 1.0}))
-                    st.plotly_chart(prob_fig, use_container_width=True, config={'displayModeBar': False})
-
-                # Comparación de métricas (full-width)
-                metrics_fig = create_metrics_comparison(player_data, predicted_style, recommender)
-                st.plotly_chart(metrics_fig, use_container_width=True, config={'displayModeBar': False})
-
-                st.markdown("---")
-
-                # Recomendaciones - se muestran como expanders con prioridad marcada
-                st.markdown("<h3 style='color:var(--primary); margin-bottom:6px;'>💡 Recomendaciones Personalizadas</h3>", unsafe_allow_html=True)
-
-                priority_colors = {'Alta': GAMING_COLORS['accent'], 'Media': GAMING_COLORS['secondary'], 'Baja': GAMING_COLORS['primary']}
-
-                for i, rec in enumerate(result.get('recommendations', []), 1):
-                    pr = rec.get('priority', 'Media')
-                    color = priority_colors.get(pr, GAMING_COLORS['primary'])
-                    icon = "🔥" if pr == 'Alta' else "✨" if pr == 'Media' else "⭐"
-                    with st.expander(f"Recomendación {i}", expanded=(i <= 2)):
-                        st.markdown(f"{icon} **{rec.get('title','Sin título')}** — <span style='color:{color};'>Prioridad: {pr}</span>", unsafe_allow_html=True)
-                        st.markdown(f"**📝 Justificación:**")
-                        st.markdown(f"<div style='background:{GAMING_COLORS['medium_bg']}; padding:10px; border-radius:6px; border-left:4px solid {color};'>{rec.get('reason','-')}</div>", unsafe_allow_html=True)
-                        st.markdown(f"**💥 Impacto esperado:**")
-                        st.markdown(f"<div style='background:{GAMING_COLORS['medium_bg']}; padding:10px; border-radius:6px; border-left:4px solid {GAMING_COLORS['primary']};'>{rec.get('impact','-')}</div>", unsafe_allow_html=True)
-                        st.markdown(f"**🎯 Acción recomendada:**")
-                        st.markdown(f"<div style='background:{GAMING_COLORS['medium_bg']}; padding:10px; border-radius:6px; border-left:4px solid {GAMING_COLORS['secondary']};'>{rec.get('action','-')}</div>", unsafe_allow_html=True)
-
-                # Descargar reporte de texto
-                report_lines = [
-                    "REPORTE - SISTEMA INTELIGENTE DE RECOMENDACIÓN",
-                    "=============================================",
-                    "",
-                    "== Información del Jugador ==",
-                    f"Horas de Juego: {playtime}",
-                    f"Sesiones/Semana: {sessions}",
-                    f"Dificultad: {difficulty}",
-                    f"Win Rate: {win_rate:.1%}",
-                    f"Estilo combate: {combat_style}",
-                    "",
-                    "== Resultados ==",
-                    f"Estilo predicho: {predicted_style}",
-                    f"Confianza: {confidence:.1%}",
-                    f"Engagement: {engagement:.2f}",
-                    f"Skill level: {skill:.2f}",
-                    "",
-                    "== Recomendaciones =="
-                ]
-                for idx, r in enumerate(result.get('recommendations', []), 1):
-                    report_lines += [
-                        f"{idx}. {r.get('title','-')}",
-                        f"   Prioridad: {r.get('priority','-')}",
-                        f"   Razón: {r.get('reason','-')}",
-                        f"   Impacto: {r.get('impact','-')}",
-                        f"   Acción: {r.get('action','-')}",
-                        ""
-                    ]
-                report_text = "\n".join(report_lines)
-
-                st.download_button(
-                    label="📥 Descargar reporte",
-                    data=report_text,
-                    file_name=f"reporte_gaming_{predicted_style}.txt",
-                    mime="text/plain",
-                    use_container_width=True
-                )
+                    st.error(f"❌ Error al procesar el archivo: {str(e)}")
             else:
-                st.error("No se obtuvieron resultados del analizador.")
+                st.info("""
+                **📋 Formato esperado del archivo JSON:**
+                ```json
+                {
+                  "playtime_hours": 35,
+                  "sessions_per_week": 3,
+                  "avg_session_length": 1.2,
+                  "achievements_unlocked": 18,
+                  "difficulty_level": 3,
+                  "combat_style": "Melee",
+                  "win_rate": 0.38,
+                  "pvp_matches": 15,
+                  "death_count": 65,
+                  "last_login_days_ago": 5,
+                  "premium_user": 0
+                }
+                ```
+                """)
+
+        # Analysis button (only show if we have player data)
+        if player_data is not None:
+            st.markdown("---")
+            center_col = st.columns([1, 2, 1])[1]  # Get the middle column
+            with center_col:
+                analyze_btn = st.button("🔍 ANALIZAR Y GENERAR RECOMENDACIONES", type="primary", use_container_width=True)
+
+            if analyze_btn:
+                with st.spinner("🤖 Analizando tu perfil con IA..."):
+                    # Asumimos que recommender.analyze_player devuelve diccionario con keys: prediction, metrics, recommendations
+                    try:
+                        result = recommender.analyze_player(player_data)
+                    except Exception as e:
+                        st.error("Error durante el análisis del perfil.")
+                        st.exception(e)
+                        result = None
+
+                if result:
+                    st.success("✅ Análisis completado")
+                    # Header de resultados
+                    st.markdown(f"<div class='gaming-card' style='margin-top:8px;'><h2 style='margin:0;color:var(--primary)'>🎯 Resultados del Análisis</h2></div>", unsafe_allow_html=True)
+
+                    # Métricas principales
+                    c1, c2, c3, c4 = st.columns([1,1,1,1], gap="large")
+                    predicted_style = result['prediction'].get('predicted_style', 'N/A')
+                    confidence = result['prediction'].get('confidence', 0.0)
+                    engagement = result['metrics'].get('engagement_score', 0.0)
+                    skill = result['metrics'].get('skill_level', 0.0)
+
+                    with c1:
+                        st.markdown(f"<div class='metric-card'><h3 style='margin:0;'>Estilo Predicho</h3><h2>{predicted_style}</h2><div class='sub-text'>Tu etiqueta de juego</div></div>", unsafe_allow_html=True)
+                    with c2:
+                        st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Confianza</h3><h2>{confidence:.1%}</h2><div style='font-size:12px;color:#AFC3FF'>Precisión del modelo</div></div>", unsafe_allow_html=True)
+                    with c3:
+                        st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Engagement</h3><h2>{engagement:.1f}</h2><div style='font-size:12px;color:#AFC3FF'>Nivel de compromiso</div></div>", unsafe_allow_html=True)
+                    with c4:
+                        st.markdown(f"<div class='metric-card'><h3 style='color:var(--text-light); margin:0;'>Habilidad</h3><h2>{skill:.1f}</h2><div style='font-size:12px;color:#AFC3FF'>Nivel estimado</div></div>", unsafe_allow_html=True)
+
+                    st.markdown("---")
+
+                    # Visualizaciones
+                    viz_left, viz_right = st.columns([1,1], gap="large")
+
+                    with viz_left:
+                        radar_fig = create_radar_chart(player_data, predicted_style, recommender)
+                        st.plotly_chart(radar_fig, use_container_width=True, config={'displayModeBar': False})
+
+                    with viz_right:
+                        prob_fig = create_probability_chart(result['prediction'].get('probabilities', {predicted_style: 1.0}))
+                        st.plotly_chart(prob_fig, use_container_width=True, config={'displayModeBar': False})
+
+                    # Comparación de métricas (full-width)
+                    metrics_fig = create_metrics_comparison(player_data, predicted_style, recommender)
+                    st.plotly_chart(metrics_fig, use_container_width=True, config={'displayModeBar': False})
+
+                    st.markdown("---")
+
+                    # Recomendaciones - se muestran como expanders con prioridad marcada
+                    st.markdown("<h3 style='color:var(--primary); margin-bottom:6px;'>💡 Recomendaciones Personalizadas</h3>", unsafe_allow_html=True)
+
+                    priority_colors = {'Alta': GAMING_COLORS['accent'], 'Media': GAMING_COLORS['secondary'], 'Baja': GAMING_COLORS['primary']}
+
+                    for i, rec in enumerate(result.get('recommendations', []), 1):
+                        pr = rec.get('priority', 'Media')
+                        color = priority_colors.get(pr, GAMING_COLORS['primary'])
+                        icon = "🔥" if pr == 'Alta' else "✨" if pr == 'Media' else "⭐"
+                        with st.expander(f"Recomendación {i}", expanded=(i <= 2)):
+                            st.markdown(f"{icon} **{rec.get('title','Sin título')}** — <span style='color:{color};'>Prioridad: {pr}</span>", unsafe_allow_html=True)
+                            st.markdown(f"**📝 Justificación:**")
+                            st.markdown(f"<div style='background:{GAMING_COLORS['medium_bg']}; padding:10px; border-radius:6px; border-left:4px solid {color};'>{rec.get('reason','-')}</div>", unsafe_allow_html=True)
+                            st.markdown(f"**💥 Impacto esperado:**")
+                            st.markdown(f"<div style='background:{GAMING_COLORS['medium_bg']}; padding:10px; border-radius:6px; border-left:4px solid {GAMING_COLORS['primary']};'>{rec.get('impact','-')}</div>", unsafe_allow_html=True)
+                            st.markdown(f"**🎯 Acción recomendada:**")
+                            st.markdown(f"<div style='background:{GAMING_COLORS['medium_bg']}; padding:10px; border-radius:6px; border-left:4px solid {GAMING_COLORS['secondary']};'>{rec.get('action','-')}</div>", unsafe_allow_html=True)
+
+                    # Descargar reporte de texto
+                    report_lines = [
+                        "REPORTE - SISTEMA INTELIGENTE DE RECOMENDACIÓN",
+                        "=============================================",
+                        "",
+                        "== Información del Jugador ==",
+                        f"Horas de Juego: {player_data['playtime_hours']}",
+                        f"Sesiones/Semana: {player_data['sessions_per_week']}",
+                        f"Dificultad: {player_data['difficulty_level']}",
+                        f"Win Rate: {player_data['win_rate']:.1%}",
+                        f"Estilo combate: {player_data['combat_style']}",
+                        "",
+                        "== Resultados ==",
+                        f"Estilo predicho: {predicted_style}",
+                        f"Confianza: {confidence:.1%}",
+                        f"Engagement: {engagement:.2f}",
+                        f"Skill level: {skill:.2f}",
+                        "",
+                        "== Recomendaciones =="
+                    ]
+                    for idx, r in enumerate(result.get('recommendations', []), 1):
+                        report_lines += [
+                            f"{idx}. {r.get('title','-')}",
+                            f"   Prioridad: {r.get('priority','-')}",
+                            f"   Razón: {r.get('reason','-')}",
+                            f"   Impacto: {r.get('impact','-')}",
+                            f"   Acción: {r.get('action','-')}",
+                            ""
+                        ]
+                    report_text = "\n".join(report_lines)
+
+                    st.download_button(
+                        label="📥 Descargar reporte",
+                        data=report_text,
+                        file_name=f"reporte_gaming_{predicted_style}.txt",
+                        mime="text/plain",
+                        use_container_width=True
+                    )
+                else:
+                    st.error("No se obtuvieron resultados del analizador.")
+
+        # Show instruction if no method selected yet
+        elif st.session_state.profile_input_method is None:
+            st.markdown("""
+            <div class='gaming-card' style='text-align: center; padding: 3rem;'>
+                <h3 style='color: var(--primary); margin-bottom: 1rem;'>🎯 Selecciona un método para comenzar</h3>
+                <p style='color: var(--text-light); margin-bottom: 2rem;'>
+                    Elige cómo quieres ingresar los datos de tu perfil de jugador
+                </p>
+                <div style='display: flex; gap: 2rem; justify-content: center;'>
+                    <div style='flex: 1; max-width: 200px;'>
+                        <h4 style='color: var(--secondary);'>📝 Manual</h4>
+                        <p style='font-size: 0.9rem; color: #AFC3FF;'>Completa los datos usando los controles interactivos</p>
+                    </div>
+                    <div style='flex: 1; max-width: 200px;'>
+                        <h4 style='color: var(--accent);'>📁 JSON</h4>
+                        <p style='font-size: 0.9rem; color: #AFC3FF;'>Carga un archivo JSON con tu perfil predefinido</p>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     # ---------- TAB 2: Estadísticas del sistema ----------
     with tab2:

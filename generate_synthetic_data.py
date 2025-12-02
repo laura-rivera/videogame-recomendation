@@ -13,14 +13,16 @@ import random
 np.random.seed(42)
 random.seed(42)
 
+
 def generate_gaming_dataset(n_samples=7563):
     """
     Genera un dataset sintético de comportamiento de jugadores
+    con solapamiento y distribución realista
     """
     
-    # Definir estilos de juego con distribución REALISTA (no uniforme)
+    # Definir estilos de juego con distribución REALISTA
     playstyles = ['Aggressive', 'Strategic', 'Casual', 'Explorer', 'Competitive']
-    playstyle_weights = [0.25, 0.15, 0.40, 0.10, 0.10]  # Más casuales, menos competitivos
+    playstyle_weights = [0.20, 0.15, 0.45, 0.12, 0.08]  # Más casuales, menos competitivos
     
     # Definir estilos de combate
     combat_styles = ['Melee', 'Ranged', 'Magic', 'Hybrid', 'Stealth']
@@ -32,9 +34,81 @@ def generate_gaming_dataset(n_samples=7563):
         # Seleccionar estilo de juego con distribución realista
         playstyle = random.choices(playstyles, weights=playstyle_weights)[0]
         
-        # Generar datos basados en el estilo de juego
+        # ====== ¡CRÍTICO! Añadir SOLAPAMIENTO entre clases ======
+        overlap_factor = np.random.normal(0, 0.3)  # Permitir mezcla de características
+        
+        # Generar playtime_hours y pvp_matches basados en el segundo código
         if playstyle == 'Aggressive':
-            playtime_hours = np.random.normal(120, 40)  # Más variación
+            # Agresivo: Permitir algunos valores más altos/bajos
+            base_playtime = np.random.normal(110, 40)
+            playtime_hours = max(20, base_playtime + overlap_factor * 30)
+            
+            base_pvp = np.random.normal(180, 70)
+            pvp_matches = max(10, base_pvp + overlap_factor * 50)
+            
+            # Asegurar MUCHOS Agresivos con PvP moderado
+            if random.random() > 0.3:  # 70% son menos extremos
+                pvp_matches = min(250, pvp_matches)
+            
+        elif playstyle == 'Strategic':
+            # Estratégico: Mezclar con Explorer y Aggressive
+            base_playtime = np.random.normal(140, 50)
+            playtime_hours = max(30, base_playtime + overlap_factor * 40)
+            
+            base_pvp = np.random.normal(60, 40)
+            pvp_matches = max(5, base_pvp + abs(overlap_factor) * 30)
+            
+            # Algunos Strategic pueden tener buen PvP
+            if random.random() > 0.8:  # 20% con más PvP
+                pvp_matches = np.random.normal(120, 30)
+            
+        elif playstyle == 'Casual':
+            # Casual: ¡PERMITIR ALGUNOS CON MÁS JUEGO!
+            base_playtime = np.random.lognormal(3.2, 0.8)  # Más variación
+            playtime_hours = max(5, base_playtime * (1 + abs(overlap_factor) * 0.5))
+            
+            base_pvp = np.random.poisson(25)  # Más PvP que antes
+            pvp_matches = max(0, base_pvp + int(abs(overlap_factor) * 20))
+            
+            # 20% de Casuales que juegan bastante
+            if random.random() > 0.8:
+                playtime_hours = np.random.normal(80, 25)
+                pvp_matches = np.random.poisson(40)
+            
+        elif playstyle == 'Explorer':
+            # Explorador: Variar más
+            base_playtime = np.random.normal(170, 60)
+            playtime_hours = max(50, base_playtime + overlap_factor * 50)
+            
+            base_pvp = np.random.normal(45, 30)
+            pvp_matches = max(5, base_pvp + abs(overlap_factor) * 40)
+            
+        else:  # Competitive
+            # Competitivo: ¡NO TODOS SON EXTREMOS!
+            base_playtime = np.random.normal(190, 50)  # Reducido de 220
+            playtime_hours = max(100, base_playtime + overlap_factor * 40)
+            
+            base_pvp = np.random.normal(350, 120)  # Más variación
+            pvp_matches = max(100, base_pvp + overlap_factor * 80)
+            
+            # 30% de Competitivos más "normales"
+            if random.random() > 0.7:
+                pvp_matches = np.random.normal(200, 60)
+                playtime_hours = np.random.normal(150, 40)
+        
+        # ====== GARANTIZAR SOLAPAMIENTO ======
+        # Aplicar variación adicional basada en random chance
+        if random.random() < 0.15:  # 15% de perfiles "mixtos"
+            # Mezclar características de otro estilo
+            if playstyle == 'Casual' and random.random() > 0.5:
+                playtime_hours *= 1.8
+                pvp_matches *= 2.5
+            elif playstyle == 'Competitive' and random.random() > 0.5:
+                playtime_hours *= 0.7
+                pvp_matches *= 0.5
+        
+        # Ahora generamos las otras columnas basándonos en el primer código pero con nuestros playtime_hours ya calculados
+        if playstyle == 'Aggressive':
             sessions_per_week = np.random.normal(10, 3)
             avg_session_length = np.random.normal(3.5, 1.2)
             achievements_unlocked = np.random.normal(60, 20)
@@ -42,11 +116,9 @@ def generate_gaming_dataset(n_samples=7563):
             combat_preference = random.choices(['Melee', 'Ranged', 'Hybrid', 'Magic'], 
                                               weights=[0.5, 0.25, 0.15, 0.1])[0]  # Melee dominante
             win_rate = np.random.normal(0.55, 0.15)  # Más variabilidad
-            pvp_matches = np.random.normal(200, 80)
             death_count = np.random.normal(300, 120)
             
         elif playstyle == 'Strategic':
-            playtime_hours = np.random.normal(150, 60)
             sessions_per_week = np.random.normal(8, 3)
             avg_session_length = np.random.normal(4.5, 1.5)
             achievements_unlocked = np.random.normal(75, 25)
@@ -54,11 +126,9 @@ def generate_gaming_dataset(n_samples=7563):
             combat_preference = random.choices(['Ranged', 'Magic', 'Stealth', 'Hybrid'], 
                                               weights=[0.4, 0.3, 0.2, 0.1])[0]
             win_rate = np.random.normal(0.65, 0.12)
-            pvp_matches = np.random.normal(150, 60)
             death_count = np.random.normal(180, 70)
             
         elif playstyle == 'Casual':
-            playtime_hours = np.random.lognormal(3.2, 0.8)  # Distribución sesgada
             sessions_per_week = np.random.poisson(4)  # Distribución de conteo
             avg_session_length = np.random.normal(1.5, 0.8)
             achievements_unlocked = np.random.poisson(20)  # Distribución realista para logros
@@ -66,11 +136,9 @@ def generate_gaming_dataset(n_samples=7563):
             combat_preference = random.choices(combat_styles, 
                                               weights=[0.3, 0.25, 0.2, 0.15, 0.1])[0]
             win_rate = np.random.beta(3, 4)  # Distribución beta para proporciones
-            pvp_matches = np.random.poisson(25)
             death_count = np.random.poisson(80)
             
         elif playstyle == 'Explorer':
-            playtime_hours = np.random.normal(180, 70)
             sessions_per_week = np.random.normal(9, 4)
             avg_session_length = np.random.normal(5, 2)
             achievements_unlocked = np.random.normal(90, 35)
@@ -78,11 +146,9 @@ def generate_gaming_dataset(n_samples=7563):
             combat_preference = random.choices(combat_styles, 
                                               weights=[0.2, 0.25, 0.25, 0.2, 0.1])[0]
             win_rate = np.random.normal(0.50, 0.15)
-            pvp_matches = np.random.normal(80, 40)
             death_count = np.random.normal(200, 80)
             
         else:  # Competitive
-            playtime_hours = np.random.normal(200, 80)
             sessions_per_week = np.random.normal(15, 5)
             avg_session_length = np.random.normal(4, 1.5)
             achievements_unlocked = np.random.normal(85, 30)
@@ -90,7 +156,6 @@ def generate_gaming_dataset(n_samples=7563):
             combat_preference = random.choices(['Hybrid', 'Melee', 'Ranged', 'Magic'], 
                                               weights=[0.4, 0.25, 0.25, 0.1])[0]
             win_rate = np.random.normal(0.70, 0.12)
-            pvp_matches = np.random.normal(400, 150)
             death_count = np.random.normal(350, 120)
         
         # INTRODUCIR CORRELACIONES NATURALES
@@ -126,7 +191,7 @@ def generate_gaming_dataset(n_samples=7563):
             pvp_matches *= 3
             achievements_unlocked *= 2
         
-        # Crear registro
+        # Crear registro con TODAS las columnas originales
         record = {
             'player_id': f'P{i+1:05d}',
             'playstyle': playstyle,

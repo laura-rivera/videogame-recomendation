@@ -11,6 +11,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (classification_report, confusion_matrix, 
                             accuracy_score, precision_score, recall_score, 
                             f1_score, roc_auc_score)
+from imblearn.over_sampling import SMOTE
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -87,12 +88,7 @@ class GameplayModelTrainer:
     def prepare_data(self, df, target_col='playstyle', test_size=0.2):
         """Prepara los datos para entrenamiento"""
         print(f"\nPreparando datos para entrenamiento...")
-        
-        # Debug: Check what's available
-        print("DataFrame columns:", df.columns.tolist())
-        print("combat_style_encoded exists:", 'combat_style_encoded' in df.columns)
-        print("premium_user exists:", 'premium_user' in df.columns)
-        
+
         # Características a usar - UPDATED to match your actual columns
         feature_cols = [
             'playtime_hours', 'sessions_per_week', 'avg_session_length',
@@ -100,40 +96,35 @@ class GameplayModelTrainer:
             'pvp_matches', 'death_count', 'engagement_score', 'skill_level',
             'kd_ratio', 'play_intensity', 'commitment_score',
             'pvp_experience', 'achievement_rate', 'last_login_days_ago',
-            'combat_style_encoded', 'premium_user'  # These should work now
+            'combat_style_encoded', 'premium_user'
         ]
-        
+
         # Verify all feature columns exist
         missing_cols = [col for col in feature_cols if col not in df.columns]
         if missing_cols:
-            print(f"ERROR: Missing columns: {missing_cols}")
+            print(f"ADVERTENCIA: Columnas faltantes: {missing_cols}")
             # Remove missing columns
             feature_cols = [col for col in feature_cols if col not in missing_cols]
-        else:
-            print("All feature columns found.")
         
-        print(f"Using {len(feature_cols)} features: {feature_cols}")
-        
-        # Check for NaN values in features
-        print(f"NaN values in features: {df[feature_cols].isna().sum().sum()}")
-        
+        print(f"Usando {len(feature_cols)} características")
+        print(f"Características: {feature_cols}")
+
         X = df[feature_cols]
         y = df[target_col]
-        
+
         # Store feature names for later use
         self.feature_names = feature_cols
-        
-        # Split and STORE the data in class attributes
+
+        # Split data
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
             X, y, test_size=test_size, random_state=42
         )
-        
+
         print(f"Datos divididos:")
         print(f"   - Entrenamiento: {self.X_train.shape}")
         print(f"   - Prueba: {self.X_test.shape}")
         print(f"   - Features: {len(feature_cols)}")
-        
-        # Return for convenience, but the main data is now stored in self
+
         return self.X_train, self.X_test, self.y_train, self.y_test
     
     def train_random_forest(self, optimize=False):
@@ -498,24 +489,6 @@ class GameplayModelTrainer:
         print(f"   - Modelo: {model_path}")
         print(f"   - Metadata: {metadata_path}")
     
-    def save_scaler(self, path='models/'):
-        """Guarda el scaler con todas las características"""
-        from sklearn.preprocessing import StandardScaler
-        import joblib
-        
-        # Create and fit scaler with all features
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(self.X_train)
-        
-        # Save the scaler
-        scaler_path = os.path.join(path, 'scaler.pkl')
-        joblib.dump(scaler, scaler_path)
-        print(f"Scaler guardado: {scaler_path}")
-        
-        # Also save feature names used for scaling
-        feature_names_path = os.path.join(path, 'scaler_feature_names.pkl')
-        joblib.dump(self.feature_names, feature_names_path)
-    
     def generate_classification_report(self):
         """Genera reporte detallado de clasificación"""
         y_pred = self.best_model.predict(self.X_test)
@@ -530,38 +503,319 @@ class GameplayModelTrainer:
         print("\n" + "=" * 60)
         print("ENTRENAMIENTO Y EVALUACIÓN DE MODELOS")
         print("=" * 60)
-        
+
         # Entrenar modelos
         self.train_random_forest(optimize=False)
         self.train_gradient_boosting()
         self.train_decision_tree()
         self.train_logistic_regression()
-        
+
         # Evaluar todos los modelos
         for model_name, model in self.models.items():
             self.evaluate_model(model, model_name)
-        
+
         # Comparar modelos
         comparison_df = self.compare_models()
-        
+
         # Visualizaciones
         print("\nGenerando visualizaciones...")
         self.plot_feature_importance()
         self.plot_confusion_matrix()
         self.plot_model_comparison(comparison_df)
-        
+
         # Reporte detallado
         self.generate_classification_report()
-        
+
         # Guardar mejor modelo
         self.save_best_model()
 
-        # Guardar scaler
-        self.save_scaler()
-        
+        # NO guardar scaler
+        print("\n⚠ Características usadas en su escala original - sin scaler")
+
         print("\n" + "=" * 60)
         print("Entrenamiento completado.")
         print("=" * 60)
+
+def cross_validate_model(trainer, model, model_name, cv=5):
+    """Perform cross-validation"""
+    from sklearn.model_selection import cross_val_score
+    
+    print(f"\nCross-Validation for {model_name}:")
+    cv_scores = cross_val_score(model, trainer.X_train, trainer.y_train, cv=cv, scoring='accuracy')
+    
+    print(f"  CV Scores: {cv_scores}")
+    print(f"  Mean CV Accuracy: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
+    
+    return cv_scores
+
+def analyze_prediction_confidence(trainer, num_samples=10):
+    """Analyze prediction confidence on test set"""
+    probabilities = trainer.best_model.predict_proba(trainer.X_test)
+    predictions = trainer.best_model.predict(trainer.X_test)
+    
+    print(f"\nPrediction Confidence Analysis (first {num_samples} samples):")
+    for i in range(min(num_samples, len(predictions))):
+        true_label = trainer.y_test.iloc[i]
+        pred_label = predictions[i]
+        confidence = probabilities[i].max()
+        pred_class = trainer.best_model.classes_[probabilities[i].argmax()]
+        
+        print(f"Sample {i}: True={true_label}, Pred={pred_label}, Confidence={confidence:.3f}")
+        
+        # Show top 3 predictions
+        top3_idx = np.argsort(probabilities[i])[-3:][::-1]
+        top3 = [(trainer.best_model.classes_[idx], probabilities[i][idx]) for idx in top3_idx]
+        print(f"  Top 3: {top3}")
+
+def analyze_errors(trainer):
+    """Analyze misclassified samples"""
+    y_pred = trainer.best_model.predict(trainer.X_test)
+    y_true = trainer.y_test
+    
+    # Confusion matrix analysis
+    from sklearn.metrics import confusion_matrix
+    cm = confusion_matrix(y_true, y_pred)
+    
+    print("\n" + "="*50)
+    print("DETAILED ERROR ANALYSIS")
+    print("="*50)
+    
+    # Show confusion matrix
+    cm_df = pd.DataFrame(cm, 
+                        index=trainer.best_model.classes_,
+                        columns=trainer.best_model.classes_)
+    print("\nConfusion Matrix:")
+    print(cm_df)
+    
+    # Analyze specific error patterns
+    error_patterns = {}
+    for true_class in trainer.best_model.classes_:
+        for pred_class in trainer.best_model.classes_:
+            if true_class != pred_class:
+                count = cm_df.loc[true_class, pred_class]
+                if count > 0:
+                    error_patterns[f"{true_class}→{pred_class}"] = count
+    
+    print("\nMost Common Error Patterns:")
+    for pattern, count in sorted(error_patterns.items(), key=lambda x: x[1], reverse=True)[:5]:
+        print(f"  {pattern}: {count} samples")
+
+def test_with_custom_data(self):
+    """Prueba con perfiles personalizados"""
+    import pandas as pd
+    import numpy as np
+
+    print("\n" + "="*60)
+    print("PRUEBA DE PERFILES")
+    print("="*60)
+
+    # Perfiles de prueba
+    test_profiles = [
+        {
+            'name': 'Casual Profile',
+            'data': {
+                'playtime_hours': 35.0,
+                'sessions_per_week': 4.0,
+                'avg_session_length': 2.0,
+                'achievements_unlocked': 25.0,
+                'difficulty_level': 4.0,
+                'win_rate': 0.42,
+                'pvp_matches': 25.0,
+                'death_count': 107.0,
+                'engagement_score': 0.36,
+                'skill_level': 34.0,
+                'kd_ratio': 0.231,
+                'play_intensity': 2.917,
+                'commitment_score': 49.5,
+                'pvp_experience': 2.773,
+                'achievement_rate': 0.514,
+                'last_login_days_ago': 5.0,
+                'combat_style_encoded': 0,
+                'premium_user': 0
+            },
+            'expected': 'Casual'
+        },
+        {
+            'name': 'Competitive Profile',
+            'data': {
+                'playtime_hours': 203.0,
+                'sessions_per_week': 15.0,
+                'avg_session_length': 3.5,
+                'achievements_unlocked': 78.0,
+                'difficulty_level': 9.0,
+                'win_rate': 0.71,
+                'pvp_matches': 406.0,
+                'death_count': 320.0,
+                'engagement_score': 5.88,
+                'skill_level': 81.0,
+                'kd_ratio': 1.188,
+                'play_intensity': 3.929,
+                'commitment_score': 252.0,
+                'pvp_experience': 5.944,
+                'achievement_rate': 0.418,
+                'last_login_days_ago': 1.0,
+                'combat_style_encoded': 3,
+                'premium_user': 1
+            },
+            'expected': 'Competitive'
+        }
+    ]
+
+    correct = 0
+    total = len(test_profiles)
+
+    for profile in test_profiles:
+        print(f"\n{'='*50}")
+        print(f"Perfil: {profile['name']}")
+        print(f"{'='*50}")
+
+        # Crear DataFrame con valores originales
+        profile_df = pd.DataFrame([profile['data']])
+
+        # Mostrar valores (en escala original)
+        print("\nValores:")
+        print(f"  Playtime: {profile['data']['playtime_hours']}h")
+        print(f"  PvP Matches: {profile['data']['pvp_matches']}")
+        print(f"  Win Rate: {profile['data']['win_rate']:.2f}")
+        print(f"  KD Ratio: {profile['data']['kd_ratio']:.3f}")
+
+        try:
+            # PREDECIR DIRECTAMENTE
+            prediction = self.best_model.predict(profile_df)[0]
+            probabilities = self.best_model.predict_proba(profile_df)[0]
+            confidence = probabilities.max()
+
+            is_correct = prediction == profile['expected']
+            if is_correct:
+                correct += 1
+                result_symbol = '✓'
+            else:
+                result_symbol = '✗'
+
+            print(f"\nResultado:")
+            print(f"  Esperado:   {profile['expected']}")
+            print(f"  Predicción: {prediction} {result_symbol}")
+            print(f"  Confianza:  {confidence:.3f}")
+
+            # Mostrar todas las probabilidades
+            print("\nProbabilidades por clase:")
+            for i, (class_name, prob) in enumerate(zip(self.best_model.classes_, probabilities)):
+                print(f"  {class_name}: {prob:.3f}")
+
+        except Exception as e:
+            print(f"Error procesando perfil: {e}")
+            print(f"Características disponibles: {list(profile_df.columns)}")
+            continue
+
+    print(f"\n{'='*60}")
+    print(f"RESUMEN DE PRUEBAS")
+    print(f"{'='*60}")
+    print(f"Correctas: {correct}/{total} ({(correct/total)*100:.1f}%)")
+    print(f"{'='*60}")
+
+def calculate_kd_ratio(pvp_matches, death_count):
+    """Calculate KD ratio from PvP matches and death count"""
+    if death_count == 0:
+        return 0
+    return pvp_matches / death_count
+
+def test_boundary_cases(trainer):
+    """Test edge cases and boundary conditions"""
+    
+    boundary_profiles = [
+        # Casual-Explorer boundary (medium playtime, medium achievements)
+        {
+            'name': 'Casual-Explorer Boundary',
+            'data': [80.0, 6.0, 3.0, 45.0, 5.0, 0.45, 40.0, 120.0, 2.0, 48.0,
+                    0.33, 2.67, 90.0, 2.0, 0.56, 6, 1, 0],
+            'description': 'Between Casual and Explorer'
+        },
+        # Aggressive-Competitive boundary (high PvP, medium-high stats)
+        {
+            'name': 'Aggressive-Competitive Boundary',
+            'data': [160.0, 12.0, 3.8, 70.0, 8.0, 0.63, 300.0, 320.0, 4.5, 70.0,
+                    0.94, 4.0, 200.0, 5.0, 0.47, 2, 2, 1],
+            'description': 'Between Aggressive and Competitive'
+        },
+        # Explorer-Strategic boundary (balanced profile)
+        {
+            'name': 'Explorer-Strategic Boundary',
+            'data': [170.0, 8.5, 4.8, 82.0, 7.0, 0.58, 110.0, 190.0, 4.0, 65.0,
+                    0.58, 4.25, 170.0, 4.5, 0.49, 3, 3, 1],
+            'description': 'Between Explorer and Strategic'
+        }
+    ]
+    
+    print("\n" + "="*50)
+    print("BOUNDARY CASE TESTING")
+    print("="*50)
+    
+    for profile in boundary_profiles:
+        sample_df = pd.DataFrame([profile['data']], columns=trainer.feature_names)
+        prediction = trainer.best_model.predict(sample_df)[0]
+        probabilities = trainer.best_model.predict_proba(sample_df)[0]
+        
+        print(f"\n{profile['name']}:")
+        print(f"  Description: {profile['description']}")
+        print(f"  Predicted: {prediction}")
+        
+        # Show top 3 probabilities
+        top3_idx = np.argsort(probabilities)[-3:][::-1]
+        top3 = [(trainer.best_model.classes_[idx], probabilities[idx]) for idx in top3_idx]
+        print(f"  Top 3 Predictions:")
+        for playstyle, prob in top3:
+            print(f"    {playstyle}: {prob:.3f}")
+
+def analyze_feature_patterns(trainer):
+    """Analyze how features differentiate playstyles based on your stats"""
+    
+    print("\n" + "="*50)
+    print("FEATURE PATTERN ANALYSIS")
+    print("="*50)
+    
+    patterns = {
+        'Casual': "Low playtime (35h), low PvP (25), low engagement",
+        'Aggressive': "Medium playtime (120h), high PvP (204), high deaths (295)",
+        'Explorer': "High playtime (186h), high achievements (89), medium PvP",
+        'Competitive': "Highest playtime (203h), highest PvP (406), premium user",
+        'Strategic': "High playtime (151h), high difficulty (8), balanced stats"
+    }
+    
+    for playstyle, pattern in patterns.items():
+        print(f"  {playstyle}: {pattern}")
+    
+    print(f"\nKey Differentiators:")
+    print(f"  • Playtime: Casual (35h) → Competitive (203h)")
+    print(f"  • PvP Matches: Casual (25) → Competitive (406)") 
+    print(f"  • Sessions/Week: Casual (4) → Competitive (15)")
+    print(f"  • Win Rate: Casual (42%) → Competitive (71%)")
+
+# Add these helper functions
+def calculate_kd_ratio(pvp_matches, death_count):
+    """Calculate KD ratio from PvP matches and death count"""
+    if death_count == 0:
+        return 0
+    return pvp_matches / death_count
+
+def calculate_play_intensity(playtime_hours, sessions_per_week):
+    """Calculate play intensity"""
+    if sessions_per_week == 0:
+        return 0
+    return playtime_hours / sessions_per_week
+
+def calculate_commitment_score(playtime_hours, achievements_unlocked):
+    """Calculate commitment score"""
+    return (playtime_hours * achievements_unlocked) / 100
+
+def calculate_pvp_experience(pvp_matches, win_rate):
+    """Calculate PvP experience"""
+    return pvp_matches * win_rate
+
+def calculate_achievement_rate(achievements_unlocked, playtime_hours):
+    """Calculate achievement rate"""
+    if playtime_hours == 0:
+        return 0
+    return achievements_unlocked / playtime_hours
 
 def main():
     """Función principal"""
@@ -580,6 +834,29 @@ def main():
     
     # Entrenar y evaluar todos los modelos
     trainer.train_and_evaluate_all()
+    
+    # ADD THESE TESTS:
+    print("\n" + "="*60)
+    print("POST-TRAINING MODEL TESTING")
+    print("="*60)
+    
+    # 1. Manual testing
+    test_with_custom_data(trainer)
+
+    # 2. Test boundary cases
+    test_boundary_cases(trainer)
+    
+    # 3. Analyze feature patterns
+    analyze_feature_patterns(trainer)
+    
+    # 2. Cross-validation
+    cross_validate_model(trainer, trainer.best_model, trainer.best_model_name)
+    
+    # 3. Confidence analysis
+    analyze_prediction_confidence(trainer)
+    
+    # 4. Error analysis
+    analyze_errors(trainer)
     
     plt.show()
 
