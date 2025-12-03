@@ -574,16 +574,16 @@ def create_style_distribution_chart(recommender):
 def get_default_player_data():
     """Return default player data structure"""
     return {
-        'playtime_hours': 50,
-        'sessions_per_week': 5,
-        'avg_session_length': 2.0,
-        'achievements_unlocked': 25,
-        'difficulty_level': 5,
+        'playtime_hours': 28.5,
+        'sessions_per_week': 3.8,
+        'avg_session_length': 1.4,
+        'achievements_unlocked': 16.0,
+        'difficulty_level': 3.0,
         'combat_style': 'Melee',
-        'win_rate': 0.5,
-        'pvp_matches': 50,
-        'death_count': 150,
-        'last_login_days_ago': 2,
+        'win_rate': 0.38,
+        'pvp_matches': 18.0,
+        'death_count': 74.0,
+        'last_login_days_ago': 7,
         'premium_user': 0
     }
 
@@ -615,7 +615,7 @@ def main():
     <div style='display:flex; justify-content:center;'>
         <div style='display:flex; gap:1rem; align-items:center; max-width:800px; width:100%;'>
             <div style='flex:1; text-align:center;'>
-                <h1 style='margin:0;'>🎮 Sistema Inteligente de Recomendación</h1>
+                <h1 style='margin:0;'>🎮 Sistema Inteligente de Recomendación para optimización de experiencias de juego</h1>
                 <p style='color:#BFC8FF; margin-top:6px;'>Mejorando tu experiencia de juego con IA — análisis, estilo y recomendaciones.</p>
             </div>
         </div>
@@ -690,25 +690,30 @@ def main():
         if st.session_state.profile_input_method == "manual":
             st.markdown("### ⚙️ Configuración de perfil manual")
             
+            # Obtener valores por defecto
+            default_data = get_default_player_data()
+            
             col1, col2, col3 = st.columns([1,1,1], gap="large")
             with col1:
-                playtime = st.slider("Horas totales jugadas", 0, 500, 50, 5, help="Total aproximado de horas jugadas")
-                sessions = st.slider("Sesiones por semana", 1, 20, 5, 1, help="Cuántas sesiones sueles tener por semana")
-                avg_length = st.slider("Duración promedio (horas)", 0.5, 8.0, 2.0, 0.5, help="Duración media de una sesión")
+                playtime = st.slider("Horas totales jugadas", 0, 500, int(default_data['playtime_hours']), 5, help="Total aproximado de horas jugadas")
+                sessions = st.slider("Sesiones por semana", 1, 20, int(default_data['sessions_per_week']), 1, help="Cuántas sesiones sueles tener por semana")
+                avg_length = st.slider("Duración promedio (horas)", 0.5, 8.0, float(default_data['avg_session_length']), 0.5, help="Duración media de una sesión")
             with col2:
-                difficulty = st.slider("Nivel de dificultad (1-10)", 1, 10, 5, 1, help="Dificultad en la que sueles jugar")
-                win_rate = st.slider("Tasa de victoria (%)", 0, 100, 50, 1, help="Porcentaje de victorias") / 100.0
-                achievements = st.slider("Logros desbloqueados", 0, 200, 25, 1, help="Cantidad de logros que completaste")
+                difficulty = st.slider("Nivel de dificultad (1-10)", 1, 10, int(default_data['difficulty_level']), 1, help="Dificultad en la que sueles jugar")
+                win_rate = st.slider("Tasa de victoria (%)", 0, 100, int(default_data['win_rate'] * 100), 1, help="Porcentaje de victorias") / 100.0
+                achievements = st.slider("Logros desbloqueados", 0, 200, int(default_data['achievements_unlocked']), 1, help="Cantidad de logros que completaste")
             with col3:
-                combat_style = st.selectbox("Estilo de combate favorito", ['Melee','Ranged','Magic','Hybrid','Stealth'], help="Tipo de combate que prefieres")
-                pvp_matches = st.slider("Partidas PvP", 0, 2000, 50, 10, help="Número de partidas PvP")
-                death_count = st.slider("Muertes totales", 0, 2000, 150, 10, help="Veces que has muerto en total")
+                combat_style = st.selectbox("Estilo de combate favorito", ['Melee','Ranged','Magic','Hybrid','Stealth'], 
+                                        index=['Melee','Ranged','Magic','Hybrid','Stealth'].index(default_data['combat_style']), 
+                                        help="Tipo de combate que prefieres")
+                pvp_matches = st.slider("Partidas PvP", 0, 2000, int(default_data['pvp_matches']), 10, help="Número de partidas PvP")
+                death_count = st.slider("Muertes totales", 0, 2000, int(default_data['death_count']), 10, help="Veces que has muerto en total")
 
             col4, col5 = st.columns([1,1], gap="large")
             with col4:
-                last_login = st.slider("Días desde último login", 0, 365, 2, 1)
+                last_login = st.slider("Días desde último login", 0, 365, int(default_data['last_login_days_ago']), 1)
             with col5:
-                premium = st.checkbox("Usuario Premium", value=False)
+                premium = st.checkbox("Usuario Premium", value=bool(default_data['premium_user']))
 
             player_data = {
                 'playtime_hours': playtime,
