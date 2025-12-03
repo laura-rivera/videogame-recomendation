@@ -1,478 +1,429 @@
 # 🎮 Sistema Inteligente de Recomendación para Videojuegos
 
-**Universidad Tecnológica de Panamá**  
-**Facultad de Ingeniería de Sistemas Computacionales**  
-**Curso:** Sistemas Inteligentes  
-**Grupo:** 1IL-142
-
-## 👥 Equipo de Desarrollo
-
-- **Laura Rivera**
-- **Marco Rodríguez**
-- **David Tao**
-
-**Profesor:** Euclides Samaniego  
-**Semestre:** II-2025
+## 📋 Tabla de Contenidos
+- [Descripción General](#descripción-general)
+- [Características Principales](#características-principales)
+- [Requisitos del Sistema](#requisitos-del-sistema)
+- [Instalación](#instalación)
+- [Guía de Uso](#guía-de-uso)
+- [Arquitectura del Sistema](#arquitectura-del-sistema)
+- [Mantenimiento y Monitoreo](#mantenimiento-y-monitoreo)
+- [Solución de Problemas](#solución-de-problemas)
+- [Créditos](#créditos)
 
 ---
 
-## 📋 Descripción del Proyecto
+## 🎯 Descripción General
 
-Sistema inteligente basado en Machine Learning que analiza el comportamiento de jugadores de videojuegos para:
-- Identificar automáticamente su estilo de juego
-- Generar recomendaciones personalizadas
-- Optimizar la experiencia y engagement del jugador
-- Predecir áreas de mejora
+El **Sistema Inteligente de Recomendación para Videojuegos** es una plataforma avanzada de análisis de comportamiento de jugadores que utiliza técnicas de Machine Learning para:
 
-### 🎯 Objetivos SMART
+- **Clasificar automáticamente** a los jugadores en 5 estilos de juego distintos
+- **Generar recomendaciones personalizadas** basadas en patrones de comportamiento
+- **Predecir riesgo de abandono** (churn) y proporcionar estrategias de retención
+- **Optimizar la experiencia del jugador** mediante insights basados en datos
 
-- **Específico:** Predecir el estilo de juego y recomendar estrategias de optimización
-- **Medible:** Lograr ≥85% de precisión en clasificación de estilos
-- **Alcanzable:** Usando Random Forest y dataset sintético de 10,000 jugadores
-- **Relevante:** Mejora la retención y satisfacción de jugadores
-- **Temporal:** Desarrollado en 4 días intensivos
+### 🏆 Estilos de Juego Identificados
+
+| Estilo | Características Principales |
+|--------|---------------------------|
+| **Casual** | Bajo compromiso, juego relajado, dificultad baja |
+| **Aggressive** | Alto PvP, combate directo, orientado a la acción |
+| **Explorer** | Alto completismo, descubrimiento de contenido, logros |
+| **Competitive** | Máximo rendimiento, alta tasa de victoria, jugador premium |
+| **Strategic** | Planificación táctica, dificultad alta, juego eficiente |
+
+---
+
+## ✨ Características Principales
+
+### 🔍 Análisis Inteligente
+- Clasificación con **91. 47% de precisión** (Gradient Boosting)
+- Análisis de **18 métricas clave** de comportamiento
+- Visualizaciones interactivas con gráficos radar y comparativas
+
+### 💡 Recomendaciones Justificadas
+- Motor de reglas basado en desviación métrica
+- Explicaciones transparentes para cada sugerencia
+- Priorización automática (Alta/Media/Baja)
+
+### 📊 Panel de Administración
+- Monitoreo de precisión del modelo en tiempo real
+- Sistema de feedback de usuarios
+- Alertas automáticas de reentrenamiento
+- Exportación de reportes analíticos
+
+### 🔄 Ciclo MLOps Completo
+- Reentrenamiento automático basado en feedback
+- Versionado de modelos con rollback
+- Detección de drift de datos y concepto
+
+---
+
+## 💻 Requisitos del Sistema
+
+### Software Necesario
+- **Python**: 3.8 o superior
+- **Espacio en disco**: Mínimo 500 MB
+- **RAM**: Recomendado 2 GB
+- **Navegador**: Chrome, Firefox, Edge o Safari (versión reciente)
+
+### Dependencias Principales
+```
+pandas>=2.0.3
+numpy>=1.24.3
+scikit-learn>=1.3.0
+streamlit>=1.28.0
+plotly>=5.16.1
+joblib>=1.3.2
+```
+
+---
+
+## 🚀 Instalación
+
+### Paso 1: Clonar el Repositorio
+```bash
+git clone https://github.com/laura-rivera/videogame-recomendation. git
+cd videogame-recomendation
+```
+
+### Paso 2: Crear Entorno Virtual (Recomendado)
+```bash
+# Windows
+python -m venv venv
+venv\Scripts\activate
+
+# Linux/Mac
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### Paso 3: Instalar Dependencias
+```bash
+pip install -r requirements.txt
+```
+
+### Paso 4: Verificar Archivos Necesarios
+Asegúrese de que existan estos archivos críticos:
+```
+models/
+├── best_model.pkl          # Modelo entrenado
+└── model_metadata.pkl      # Metadatos del modelo
+
+data/
+├── gaming_behavior_processed.csv  # Dataset procesado
+└── feedback/               # Carpeta para feedback (se crea automáticamente)
+```
+
+---
+
+## 📖 Guía de Uso
+
+### Iniciar la Aplicación
+
+```bash
+streamlit run app. py
+```
+
+La interfaz se abrirá automáticamente en `http://localhost:8501`
+
+### 🎮 Pestaña 1: Perfil del Jugador
+
+#### **Opción A: Entrada Manual**
+1. Haga clic en **"📝 Ingresar Perfil Manualmente"**
+2. Ajuste los controles deslizantes para configurar el perfil:
+   - **Horas de juego**: Tiempo total invertido
+   - **Sesiones por semana**: Frecuencia de juego
+   - **Tasa de victoria**: Porcentaje de victorias
+   - **Partidas PvP**: Cantidad de combates competitivos
+   - Y más... 
+3. Presione **"🔍 ANALIZAR Y GENERAR RECOMENDACIONES"**
+
+#### **Opción B: Carga desde JSON**
+1. Haga clic en **"📁 Cargar Perfil desde JSON"**
+2. Suba un archivo con esta estructura:
+```json
+{
+  "playtime_hours": 35,
+  "sessions_per_week": 3,
+  "avg_session_length": 1.2,
+  "achievements_unlocked": 18,
+  "difficulty_level": 3,
+  "combat_style": "Melee",
+  "win_rate": 0.38,
+  "pvp_matches": 15,
+  "death_count": 65,
+  "last_login_days_ago": 5,
+  "premium_user": 0
+}
+```
+3. Presione el botón de análisis
+
+#### **Interpretación de Resultados**
+
+##### Métricas Principales
+- **Estilo Predicho**: Clasificación del jugador
+- **Confianza**: Precisión de la predicción (0-100%)
+- **Engagement**: Nivel de compromiso calculado
+- **Habilidad**: Nivel de destreza estimado
+
+##### Gráfico Radar
+- **Línea Verde (Tu Perfil)**: Tus métricas actuales
+- **Línea Azul (Promedio)**: Perfil óptimo de tu estilo
+- **Diferencias**: Áreas de mejora potencial
+
+##### Recomendaciones
+Cada recomendación incluye:
+- **📝 Justificación**: Por qué se genera
+- **💥 Impacto Esperado**: Beneficio de seguirla
+- **🎯 Acción Recomendada**: Pasos concretos
+
+#### **Sistema de Feedback**
+Después del análisis, califique:
+1. **Calificación general** (1-5 estrellas)
+2.  **¿Predicción correcta?** (Sí/No/No estoy seguro)
+3. **¿Recomendaciones útiles?** (Sí/No/Parcialmente)
+4. **Comentarios adicionales** (opcional)
+
+Su feedback mejora el sistema para futuros usuarios.
+
+---
+
+### 📈 Pestaña 2: Estadísticas del Sistema
+
+Visualice métricas globales:
+- **Especificaciones técnicas** del modelo
+- **Distribución de estilos** en el dataset
+- **Métricas de rendimiento**: Precisión, Precision, Recall
+
+---
+
+### ❓ Pestaña 3: Ayuda
+
+Consulte:
+- Definición de métricas clave
+- Información sobre el proyecto
+- Datos de contacto de los desarrolladores
+
+---
+
+### ⚙️ Pestaña 4: Panel de Administración
+
+> **Nota**: Requiere contraseña de administrador (predeterminada: `admin123`)
+
+#### Funcionalidades Administrativas
+
+##### **Monitoreo del Sistema**
+- **Predicciones Totales**: Cantidad de análisis realizados
+- **Tasa de Feedback**: Porcentaje de usuarios que opinaron
+- **Accuracy Actual**: Precisión validada por usuarios
+- **Confianza Promedio**: Seguridad de las predicciones
+
+##### **Estado del Modelo**
+El sistema detecta automáticamente si necesita reentrenamiento por:
+- Caída de precisión (<75%)
+- Drift significativo (>10% de variación)
+- Alta tasa de predicciones de baja confianza (>30%)
+
+##### **Exportación de Datos**
+- **Datos de Reentrenamiento**: Perfiles confirmados para actualizar el modelo
+- **Reporte Completo**: Análisis detallado en formato JSON
 
 ---
 
 ## 🏗️ Arquitectura del Sistema
 
+### Componentes Principales
+
 ```
-proyecto/
-├── data/                          # Datos del proyecto
-│   ├── gaming_behavior_raw.csv    # Dataset original (10K registros)
-│   └── gaming_behavior_processed.csv  # Datos preprocesados
-│
-├── models/                        # Modelos entrenados
-│   ├── best_model.pkl            # Mejor modelo (Random Forest)
-│   ├── scaler.pkl                # Normalizador de datos
-│   ├── label_encoders.pkl        # Codificadores de categorías
-│   └── model_metadata.pkl        # Metadatos del modelo
-│
-├── visualizations/                # Gráficos y análisis
-│   ├── 1_target_distribution.png
-│   ├── 2_numerical_distributions.png
-│   ├── 3_correlation_matrix.png
-│   ├── 4_playstyle_characteristics.png
-│   ├── 5_combat_style_analysis.png
-│   ├── 6_engagement_analysis.png
-│   ├── feature_importance.png
-│   ├── confusion_matrix.png
-│   └── model_comparison.png
-│
-├── generate_synthetic_data.py     # Generador de datos
-├── preprocessing.py               # Preprocesamiento
-├── eda_analysis.py               # Análisis exploratorio
-├── train_model.py                # Entrenamiento de modelos
-├── recommender_system.py         # Sistema de recomendaciones
-├── app.py                        # Aplicación web (Streamlit)
-├── run_all.py                    # Pipeline completo
-├── requirements.txt              # Dependencias
-└── README.md                     # Este archivo
+┌─────────────────────────────────────────┐
+│         Interfaz Streamlit (app.py)     │
+│  - Input de datos                       │
+│  - Visualizaciones                      │
+│  - Panel de administración              │
+└─────────────┬───────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────┐
+│   Recommender System (recommender_system.py)  │
+│  - Carga del modelo                     │
+│  - Predicción de estilo                 │
+│  - Generación de recomendaciones        │
+└─────────────┬───────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────┐
+│   Feedback System (feedback_system.py)  │
+│  - Almacenamiento de predicciones       │
+│  - Registro de feedback                 │
+│  - Preparación para reentrenamiento     │
+└─────────────────────────────────────────┘
+```
+
+### Flujo de Datos
+
+```
+Usuario → Input → Preprocessor → Modelo ML → Predicción
+                                                  ↓
+                                        Recomendaciones
+                                                  ↓
+                                             Feedback
+                                                  ↓
+                                        FeedbackSystem
+                                                  ↓
+                                    ModelMonitoring ←→ Alertas
+                                                  ↓
+                                        Reentrenamiento
 ```
 
 ---
 
-## 🚀 Instalación y Configuración
+## 🔧 Mantenimiento y Monitoreo
 
-### Prerrequisitos
+### Ciclo de Actualización Recomendado
 
-- Python 3.8 o superior
-- pip (gestor de paquetes de Python)
-- 2GB de espacio en disco
-- 4GB de RAM recomendado
+| Frecuencia | Actividad | Responsable |
+|-----------|-----------|-------------|
+| **Diario** | Revisión de feedback nuevo | Admin |
+| **Semanal** | Verificación de métricas de monitoreo | Admin |
+| **Mensual** | Evaluación de necesidad de reentrenamiento | Equipo Técnico |
+| **Trimestral** | Reentrenamiento del modelo (si es necesario) | Data Scientist |
 
-### Instalación Rápida
+### Reentrenamiento Manual
 
+Si el sistema recomienda reentrenar:
+
+1. **Exportar datos** desde el panel de administración
+2.  **Ejecutar el script**:
 ```bash
-# 1. Clonar o descargar el proyecto
-cd sistema-recomendacion-videojuegos
+python retrain_model.py
+```
+3. **Verificar** que se creó un backup en `models/backup/`
+4. **Reiniciar** la aplicación para cargar el nuevo modelo
 
-# 2. Instalar dependencias
-pip install -r requirements.txt
+### Estructura de Almacenamiento
 
-# 3. Ejecutar pipeline completo (genera datos, entrena modelo, etc.)
-python run_all.py
-
-# 4. Lanzar aplicación web
-streamlit run app.py
+```
+data/feedback/
+├── user_feedback.jsonl          # Calificaciones de usuarios
+├── prediction_history.jsonl     # Historial de predicciones
+└── analyzed_profiles.jsonl      # Perfiles para reentrenamiento
 ```
 
-### Instalación Manual (Paso a Paso)
-
-```bash
-# 1. Instalar dependencias
-pip install -r requirements.txt
-
-# 2. Generar dataset sintético
-python generate_synthetic_data.py
-
-# 3. Preprocesar datos
-python preprocessing.py
-
-# 4. Análisis exploratorio (opcional)
-python eda_analysis.py
-
-# 5. Entrenar modelos
-python train_model.py
-
-# 6. Probar sistema de recomendaciones
-python recommender_system.py
-
-# 7. Lanzar interfaz web
-streamlit run app.py
-```
+Cada archivo `. jsonl` contiene una línea JSON por registro.
 
 ---
 
-## 📊 Metodología
+## 🐛 Solución de Problemas
 
-### ETAPA 1: Planificación y Recopilación de Datos
+### Error: "No se pudo cargar el modelo"
 
-**Alcance definido:**
-- Dominio: Comportamiento de jugadores en videojuegos
-- Objetivo: Clasificar estilos de juego y recomendar mejoras
+**Causa**: Archivo de modelo corrupto o ruta incorrecta
 
-**Métricas clave:**
-- Tiempo de juego (horas totales)
-- Frecuencia de sesiones (por semana)
-- Nivel de dificultad preferido (1-10)
-- Tasa de victoria (win rate)
-- Actividad PvP (partidas jugador vs jugador)
-- Logros desbloqueados
-- Estilo de combate (Melee, Ranged, Magic, etc.)
-
-**Dataset:**
-- 10,000 jugadores sintéticos
-- 15 características por jugador
-- 5 estilos de juego: Aggressive, Strategic, Casual, Explorer, Competitive
-
-### ETAPA 2: Desarrollo del Modelo
-
-**Preprocesamiento:**
-- Limpieza de datos (nulos, duplicados, outliers)
-- Ingeniería de características:
-  - K/D Ratio (kills/deaths)
-  - Play Intensity (horas por sesión)
-  - Commitment Score (nivel de compromiso)
-  - PvP Experience (experiencia logarítmica)
-  - Achievement Rate (logros por hora)
-- Normalización con StandardScaler
-- Codificación de variables categóricas
-
-**Modelos evaluados:**
-1. **Random Forest** ⭐ (Mejor modelo)
-   - 100 árboles de decisión
-   - Precisión: 85-87%
-   - Robusto y explicable
-
-2. **Gradient Boosting**
-   - Precisión: 83-85%
-   - Mayor tiempo de entrenamiento
-
-3. **Decision Tree**
-   - Precisión: 78-80%
-   - Más simple pero menos preciso
-
-4. **Logistic Regression**
-   - Precisión: 75-77%
-   - Baseline para comparación
-
-**División de datos:**
-- Entrenamiento: 80% (8,000 registros)
-- Prueba: 20% (2,000 registros)
-- Validación cruzada: 5-fold
-
-### ETAPA 3: Implementación
-
-**Sistema de Recomendaciones:**
-- Análisis comparativo con jugadores del mismo estilo
-- Generación de 5-7 recomendaciones personalizadas
-- Justificación basada en:
-  - Feature importance del modelo
-  - Estadísticas de referencia por estilo
-  - Brechas entre perfil actual y óptimo
-
-**Interfaz de Usuario (Streamlit):**
-- Dashboard interactivo
-- Inputs mediante sliders y selectores
-- Visualizaciones con Plotly:
-  - Gráfico de radar (comparación de perfil)
-  - Barras de probabilidad por estilo
-  - Métricas clave en tiempo real
-- Sistema de descarga de reportes
-
-**Características de la UI:**
-- Diseño responsive
-- Navegación por tabs
-- Ayuda contextual
-- Exportación de resultados
-
----
-
-## 📈 Resultados
-
-### Métricas del Modelo
-
-| Métrica | Valor |
-|---------|-------|
-| **Precisión (Test)** | 85.3% |
-| **Precisión (Train)** | 92.1% |
-| **Precision (weighted)** | 85.8% |
-| **Recall (weighted)** | 85.3% |
-| **F1-Score (weighted)** | 85.4% |
-
-### Características Más Importantes
-
-1. **Win Rate** (18.2%) - Mayor predictor de estilo
-2. **Difficulty Level** (15.7%) - Indica preferencias
-3. **PvP Matches** (14.3%) - Distingue competitivos
-4. **Playtime Hours** (12.8%) - Nivel de compromiso
-5. **Commitment Score** (11.5%) - Engagement general
-
-### Matriz de Confusión
-
-El modelo clasifica correctamente:
-- Aggressive: 88%
-- Strategic: 91%
-- Casual: 79%
-- Explorer: 84%
-- Competitive: 87%
-
----
-
-## 💡 Ejemplos de Recomendaciones
-
-### Ejemplo 1: Jugador Casual
-
-**Perfil:**
-- 45 horas jugadas
-- 3 sesiones/semana
-- Dificultad nivel 4
-- Win rate: 42%
-
-**Recomendaciones generadas:**
-1. ✅ Incrementa tu tiempo de práctica (Prioridad: Media)
-2. ✅ Experimenta con nuevas estrategias (Prioridad: Baja)
-3. ✅ Establece rutina más consistente (Prioridad: Media)
-
-### Ejemplo 2: Jugador Competitivo
-
-**Perfil:**
-- 250 horas jugadas
-- 15 sesiones/semana
-- Dificultad nivel 9
-- Win rate: 68%
-
-**Recomendaciones generadas:**
-1. ✅ Refina combos avanzados (Prioridad: Alta)
-2. ✅ Analiza replays de derrotas (Prioridad: Alta)
-3. ✅ Participa en torneos (Prioridad: Media)
-
----
-
-## 🔬 Justificación Técnica
-
-### ¿Por qué Machine Learning?
-
-Un sistema basado en reglas fijas no puede:
-- Detectar patrones complejos en 15+ características
-- Adaptarse a nuevos datos sin reprogramación
-- Manejar relaciones no lineales entre variables
-- Generalizar a miles de perfiles diferentes
-
-El ML ofrece:
-- ✅ Aprendizaje automático de patrones
-- ✅ Predicciones precisas (85%+)
-- ✅ Escalabilidad a millones de jugadores
-- ✅ Mejora continua con nuevos datos
-
-### ¿Por qué Random Forest?
-
-Ventajas sobre otros modelos:
-- **Alta precisión** sin overfitting
-- **Interpretable** (feature importance)
-- **Robusto** a outliers y datos ruidosos
-- **Rápido** en predicción
-- **No requiere normalización** (pero la aplicamos)
-
----
-
-## 🎯 Casos de Uso
-
-### 1. Desarrolladores de Videojuegos
-- Entender su base de jugadores
-- Diseñar contenido personalizado
-- Mejorar retención y engagement
-- Balancear dificultad
-
-### 2. Plataformas de Gaming
-- Sistema de matchmaking mejorado
-- Recomendaciones de juegos
-- Detección de abandono (churn)
-- Segmentación de usuarios
-
-### 3. Jugadores Individuales
-- Mejorar su rendimiento
-- Descubrir su estilo de juego
-- Recibir coaching personalizado
-- Optimizar tiempo de práctica
-
-### 4. Equipos E-Sports
-- Analizar rendimiento de jugadores
-- Identificar fortalezas/debilidades
-- Reclutar talento
-- Diseñar estrategias de entrenamiento
-
----
-
-## 🔮 Trabajo Futuro
-
-### Mejoras a Corto Plazo
-- [ ] Integrar con APIs de juegos reales (Steam, Xbox Live)
-- [ ] Añadir más estilos de juego (15+ categorías)
-- [ ] Sistema de feedback del usuario
-- [ ] Reentrenamiento automático mensual
-
-### Mejoras a Medio Plazo
-- [ ] Implementar Deep Learning (LSTM para secuencias)
-- [ ] Predicción de abandono (churn prediction)
-- [ ] Recomendaciones de juegos similares
-- [ ] Sistema de amigos/matchmaking
-
-### Mejoras a Largo Plazo
-- [ ] Reinforcement Learning para NPCs adaptativos
-- [ ] Generación procedural de contenido
-- [ ] Procesamiento de Lenguaje Natural para diálogos
-- [ ] Integración con motores de juego (Unity/Unreal)
-
----
-
-## 📚 Tecnologías Utilizadas
-
-### Lenguaje
-- **Python 3.8+** - Lenguaje principal
-
-### Machine Learning
-- **scikit-learn** - Modelos de ML
-- **NumPy** - Computación numérica
-- **Pandas** - Manipulación de datos
-
-### Visualización
-- **Matplotlib** - Gráficos estáticos
-- **Seaborn** - Visualizaciones estadísticas
-- **Plotly** - Gráficos interactivos
-
-### Web Framework
-- **Streamlit** - Interfaz web interactiva
-
-### Utilidades
-- **Joblib** - Serialización de modelos
-- **SciPy** - Funciones científicas
-
----
-
-## 🧪 Testing
-
-### Pruebas Realizadas
-
-**1. Validación de Datos**
-- ✅ Valores en rangos esperados
-- ✅ Sin nulos críticos
-- ✅ Distribuciones balanceadas
-
-**2. Validación de Modelo**
-- ✅ Precisión > 80% en test set
-- ✅ No overfitting (train/test gap < 10%)
-- ✅ Validación cruzada consistente
-
-**3. Pruebas de Sistema**
-- ✅ Pipeline completo funcional
-- ✅ Recomendaciones coherentes
-- ✅ UI responsive y sin errores
-
-**4. Casos de Prueba**
+**Solución**:
+1.  Verifique que existe `models/best_model.pkl`
+2.  Actualice las rutas en `recommender_system.py` (líneas 19-20):
 ```python
-# Ejemplo de caso de prueba
-test_profiles = [
-    {'playtime': 50, 'win_rate': 0.45, 'expected': 'Casual'},
-    {'playtime': 200, 'win_rate': 0.70, 'expected': 'Competitive'},
-    {'playtime': 180, 'achievements': 90, 'expected': 'Explorer'}
-]
-# Todos los casos pasaron con 100% de precisión
+model_path=r"ruta/completa/a/best_model.pkl",
+metadata_path=r"ruta/completa/a/model_metadata.pkl"
+```
+
+### Error: "ModuleNotFoundError"
+
+**Causa**: Dependencias no instaladas
+
+**Solución**:
+```bash
+pip install -r requirements. txt --upgrade
+```
+
+### La interfaz no se abre
+
+**Causa**: Puerto 8501 ocupado
+
+**Solución**:
+```bash
+streamlit run app.py --server.port 8502
+```
+
+### Predicciones inconsistentes
+
+**Causa**: Modelo necesita reentrenamiento
+
+**Solución**:
+1.  Vaya al **Panel de Administración**
+2. Verifique el **Estado del Modelo**
+3. Si es necesario, ejecute `python retrain_model.py`
+
+---
+
+## 📊 Métricas Clave Explicadas
+
+| Métrica | Descripción | Rango Óptimo |
+|---------|-------------|--------------|
+| **playtime_hours** | Tiempo total de juego | Varía por estilo |
+| **win_rate** | Tasa de victoria | 0. 4 - 0.7 (40-70%) |
+| **engagement_score** | Nivel de compromiso calculado | > 2.0 |
+| **skill_level** | Habilidad estimada | > 50 |
+| **pvp_matches** | Partidas competitivas | Varía por estilo |
+| **achievements_unlocked** | Logros completados | > 50 |
+
+### Cálculo de Métricas Derivadas
+
+```python
+# Engagement Score
+engagement_score = (sessions_per_week * avg_session_length * 10) / 100
+
+# Skill Level  
+skill_level = (win_rate * 50) + (difficulty_level * 5)
+
+# KD Ratio
+kd_ratio = pvp_matches / max(death_count, 1)
 ```
 
 ---
 
-## 📖 Referencias Bibliográficas
+## 📁 Estructura del Proyecto
 
-1. Safadi, F., Fonteneau, R., & Ernst, D. (2015). *Artificial intelligence in video games: Towards a unified framework.* International Journal of Computer Games Technology.
-
-2. Vasconcelos, S. (2025). *Generación Procedural de Contenido en la programación de videojuegos.* Universidad Nacional Autónoma de México.
-
-3. Rueda, J. (2024). *Generación Procedural Inteligente de Niveles de Plataforma 2D utilizando Algoritmos Genéticos.* Ridaa unicen.
-
-4. Navarro, J. (2024). *Procesamiento del lenguaje natural como eje central de la inteligencia artificial generativa.* Dialnet.
-
-5. Sánchez, F., & Pantoja, E. (2024). *Revisión de la literatura sobre el uso de la inteligencia artificial con enfoque a su aplicación en los videojuegos.* Universidad Politécnica Salesiana.
-
-6. Breiman, L. (2001). *Random Forests.* Machine Learning, 45(1), 5-32.
-
-7. Pedregosa, F., et al. (2011). *Scikit-learn: Machine Learning in Python.* Journal of Machine Learning Research, 12, 2825-2830.
-
----
-
-## 📞 Soporte y Contacto
-
-### Equipo de Desarrollo
-
-**Laura Rivera**
-- Email: laura.rivera@utp.ac.pa
-- Rol: Líder de proyecto, Desarrollo ML
-
-**Marco Rodríguez**
-- Email: marco.rodriguez@utp.ac.pa
-- Rol: Análisis de datos, Visualización
-
-**David Tao**
-- Email: david.tao@utp.ac.pa
-- Rol: Desarrollo UI, Testing
-
-### Profesor
-
-**Euclides Samaniego**
-- Curso: Sistemas Inteligentes
-- Institución: Universidad Tecnológica de Panamá
+```
+videogame-recomendation/
+│
+├── app.py                          # Aplicación principal Streamlit
+├── recommender_system.py           # Motor de recomendaciones
+├── feedback_system.py              # Sistema de feedback y monitoreo
+├── train_model.py                  # Script de entrenamiento
+├── preprocessing.py                # Preprocesamiento de datos
+├── eda_analysis.py                 # Análisis exploratorio
+├── requirements.txt                # Dependencias
+│
+├── models/
+│   ├── best_model.pkl              # Modelo entrenado
+│   ├── model_metadata.pkl          # Metadatos
+│   └── backup/                     # Versiones anteriores
+│
+├── data/
+│   ├── gaming_behavior_raw.csv     # Dataset original
+│   ├── gaming_behavior_processed.csv # Dataset procesado
+│   └── feedback/                   # Datos de feedback
+│
+└── visualizations/                 # Gráficos generados
+```
 
 ---
 
-## 📄 Licencia
+## 🔒 Seguridad y Privacidad
 
-Este proyecto fue desarrollado con fines académicos para el curso de Sistemas Inteligentes de la Universidad Tecnológica de Panamá.
+### Datos Procesados
+- Todos los datos son **pseudonimizados** (solo `player_id`)
+- No se almacena información personal identificable (PII)
+- Cumplimiento con estándares de privacidad de datos
 
-**Año:** 2025  
-**Semestre:** II
+### Credenciales de Admin
+> ⚠️ **IMPORTANTE**: Cambie la contraseña predeterminada en producción
 
----
-
-## 🙏 Agradecimientos
-
-- A la Universidad Tecnológica de Panamá por la formación académica
-- Al profesor Euclides Samaniego por su guía en el curso
-- A la comunidad de código abierto por las herramientas utilizadas
-- A todos los investigadores citados en las referencias
-
----
-
-## 📊 Estadísticas del Proyecto
-
-- **Líneas de código:** ~3,500
-- **Archivos Python:** 8
-- **Tiempo de desarrollo:** 4 días intensivos
-- **Dataset generado:** 10,000 registros
-- **Modelos evaluados:** 4
-- **Visualizaciones creadas:** 12+
-- **Precisión alcanzada:** 85.3%
+Edite en `app.py` (línea ~708):
+```python
+if password == "TU_CONTRASEÑA_SEGURA":  # Cambiar "admin123"
+```
 
 ---
-
-**¡Gracias por revisar nuestro proyecto! 🎮🚀**
