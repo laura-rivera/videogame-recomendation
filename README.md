@@ -9,7 +9,6 @@
 - [Arquitectura del Sistema](#arquitectura-del-sistema)
 - [Mantenimiento y Monitoreo](#mantenimiento-y-monitoreo)
 - [Solución de Problemas](#solución-de-problemas)
-- [Créditos](#créditos)
 
 ---
 
