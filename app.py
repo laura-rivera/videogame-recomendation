@@ -7,6 +7,7 @@ from plotly.subplots import make_subplots
 import sys
 import os
 import json
+from datetime import datetime
 
 # ---------------------------------------------------------
 # Intentar importar el sistema de recomendaciones
@@ -14,12 +15,33 @@ import json
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 try:
     from recommender_system import GameRecommender
+    from feedback_system import FeedbackSystem, ModelMonitoring
 except Exception as e:
     # Si el import falla, guardamos el error para mostrarlo más abajo
     RecommenderImportError = e
     GameRecommender = None
+    FeedbackSystem = None
+    ModelMonitoring = None
 else:
     RecommenderImportError = None
+
+# ============================================
+# INICIALIZACIÓN (después de cargar recommender)
+# ============================================
+
+@st.cache_resource
+def load_feedback_system():
+    if FeedbackSystem is None:
+        st.error("⚠️ No se pudo cargar el sistema de feedback.")
+        return None
+    return FeedbackSystem()
+
+@st.cache_resource
+def load_monitoring():
+    feedback_sys = load_feedback_system()
+    if feedback_sys is None:
+        return None
+    return ModelMonitoring(feedback_sys)
 
 # ---------------------------------------------------------
 # Configuración de la página
@@ -273,6 +295,102 @@ def load_recommender():
 # ---------------------------------------------------------
 # Funciones para gráficos (limpios y legibles)
 # ---------------------------------------------------------
+
+def show_feedback_section(session_id, predicted_style, player_data):
+    """Muestra sección de feedback después del análisis"""
+    
+    st.markdown("---")
+    st.markdown("### 💬 Tu Opinión Importa")
+    st.markdown("""
+    <div class='gaming-card' style='padding: 1.5rem;'>
+        <p style='color: var(--text-light); margin-bottom: 1rem;'>
+            Tu feedback nos ayuda a mejorar el sistema y hacerlo más preciso para todos los jugadores.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.form(key=f'feedback_form_{session_id}'):
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            # Calificación general
+            rating = st.slider(
+                "📊 Calificación general",
+                min_value=1,
+                max_value=5,
+                value=3,
+                help="1 = Muy malo, 5 = Excelente"
+            )
+            
+            # ¿Predicción correcta?
+            prediction_correct = st.radio(
+                f"🎯 ¿La predicción '{predicted_style}' fue correcta?",
+                options=["Sí", "No", "No estoy seguro"],
+                horizontal=True
+            )
+            
+            # Si la predicción no fue correcta, pedir el estilo real
+            actual_style = None
+            if prediction_correct == "No":
+                actual_style = st.selectbox(
+                    "¿Cuál es tu estilo real?",
+                    options=['Casual', 'Aggressive', 'Explorer', 'Competitive', 'Strategic']
+                )
+        
+        with col2:
+            # ¿Recomendaciones útiles?
+            recommendations_helpful = st.radio(
+                "💡 ¿Las recomendaciones fueron útiles?",
+                options=["Sí", "No", "Parcialmente"],
+                horizontal=True
+            )
+            
+            # Comentarios adicionales
+            comments = st.text_area(
+                "📝 Comentarios adicionales (opcional)",
+                placeholder="Comparte cualquier sugerencia o comentario...",
+                height=100
+            )
+        
+        # Botón de envío
+        submitted = st.form_submit_button(
+            "📤 Enviar Feedback",
+            use_container_width=True,
+            type="primary"
+        )
+        
+        if submitted:
+            # Guardar feedback
+            feedback_sys = load_feedback_system()
+            
+            if feedback_sys:
+                feedback_data = {
+                    'rating': rating,
+                    'prediction_correct': prediction_correct == "Sí",
+                    'actual_style': actual_style if prediction_correct == "No" else predicted_style,
+                    'recommendations_helpful': recommendations_helpful == "Sí",
+                    'comments': comments,
+                    'feedback_type': 'post_analysis'
+                }
+                
+                feedback_sys.save_feedback(session_id, feedback_data)
+                
+                # Guardar perfil para reentrenamiento
+                feedback_sys.save_profile_for_training(
+                    player_data,
+                    predicted_style,
+                    actual_style if prediction_correct == "No" else None
+                )
+                
+                st.success("✅ ¡Gracias por tu feedback! Nos ayuda a mejorar el sistema.")
+                
+                # Mostrar estadísticas de feedback
+                summary = feedback_sys.get_feedback_summary(days=30)
+                if summary and summary['total_feedback'] > 0:
+                    st.info(f"📊 En los últimos 30 días: {summary['total_feedback']} usuarios han compartido feedback. Calificación promedio: {summary['avg_rating']:.1f}/5")
+            else:
+                st.warning("⚠️ No se pudo guardar el feedback debido a un error del sistema.")
+
 def create_radar_chart(player_data, predicted_style, recommender):
     categories = ['Tiempo', 'Sesiones', 'Dificultad', 'Win Rate', 'Logros', 'PvP']
     # Normalizar a 0-10
@@ -535,7 +653,7 @@ def main():
         st.markdown("</div>", unsafe_allow_html=True)
 
     # Tabs
-    tab1, tab2, tab3 = st.tabs(["📊 Perfil", "📈 Estadísticas", "❓ Ayuda"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Perfil", "📈 Estadísticas", "❓ Ayuda", "⚙️ Admin"])
 
     # ---------- TAB 1: Perfil ----------
     with tab1:
@@ -785,8 +903,20 @@ def main():
                         mime="text/plain",
                         use_container_width=True
                     )
-                else:
-                    st.error("No se obtuvieron resultados del analizador.")
+
+                    # Guardar predicción y mostrar feedback
+                    if analyze_btn and result:
+                        feedback_sys = load_feedback_system()
+                        if feedback_sys:
+                            session_id = feedback_sys.save_prediction(player_data, result['prediction'])
+                            
+                            # Mostrar sección de feedback
+                            show_feedback_section(session_id, predicted_style, player_data)
+                        else:
+                            st.warning("⚠️ El sistema de feedback no está disponible en este momento.")
+
+                    else:
+                        st.error("No se obtuvieron resultados del analizador.")
 
         # Show instruction if no method selected yet
         elif st.session_state.profile_input_method is None:
@@ -875,6 +1005,158 @@ def main():
             <p style='text-align:center; margin-top:8px; color:#AFC3FF'><strong>Curso:</strong> Sistemas Inteligentes - UTP 2025</p>
         </div>
         """, unsafe_allow_html=True)
+    
+        # ---------- TAB 4: Panel de Administración ----------
+    with tab4:
+        st.markdown("<div class='gaming-card'><h2 style='margin:0;'>⚙️ Panel de Administración</h2><p style='margin:6px 0 0 0; color:#BFC8FF'>Monitoreo del sistema y feedback de usuarios.</p></div>", unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Verificar contraseña simple (en producción usar autenticación real)
+        password = st.text_input("🔐 Contraseña de administrador", type="password")
+        
+        if password == "admin123":  # CAMBIAR EN PRODUCCIÓN
+            st.success("✅ Acceso autorizado")
+            
+            feedback_sys = load_feedback_system()
+            monitor = load_monitoring()
+            
+            if feedback_sys is None or monitor is None:
+                st.error("⚠️ No se pudo cargar los sistemas de feedback/monitoreo.")
+            else:
+                # Métricas de monitoreo
+                st.markdown("#### 📊 Métricas del Sistema")
+                
+                metrics = monitor.calculate_drift_metrics(window_days=30)
+                
+                if metrics:
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric(
+                            "Predicciones Totales",
+                            metrics['total_predictions']
+                        )
+                    
+                    with col2:
+                        st.metric(
+                            "Tasa de Feedback",
+                            f"{metrics['feedback_rate']:.1%}"
+                        )
+                    
+                    with col3:
+                        accuracy_val = metrics['accuracy'] if metrics['accuracy'] else 0
+                        st.metric(
+                            "Accuracy Actual",
+                            f"{accuracy_val:.1%}"
+                        )
+                    
+                    with col4:
+                        st.metric(
+                            "Confianza Promedio",
+                            f"{metrics['avg_confidence']:.1%}"
+                        )
+                
+                st.markdown("---")
+                
+                # Verificar necesidad de reentrenamiento
+                st.markdown("#### 🔄 Estado del Modelo")
+                
+                needs_retrain, reason, current_metrics = monitor.check_retraining_needed()
+                
+                if needs_retrain:
+                    st.warning(f"⚠️ **Se recomienda reentrenar el modelo**")
+                    st.write(f"**Razón:** {reason}")
+                else:
+                    st.success("✅ **Modelo funcionando correctamente**")
+                    st.write(f"**Estado:** {reason}")
+                
+                st.markdown("---")
+                
+                # Resumen de feedback
+                st.markdown("#### 💬 Resumen de Feedback (30 días)")
+                
+                summary = feedback_sys.get_feedback_summary(days=30)
+                
+                if summary and summary['total_feedback'] > 0:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric(
+                            "Total Feedback",
+                            summary['total_feedback']
+                        )
+                    
+                    with col2:
+                        avg_rating = summary['avg_rating'] if summary['avg_rating'] else 0
+                        st.metric(
+                            "Calificación Promedio",
+                            f"{avg_rating:.1f}/5"
+                        )
+                    
+                    with col3:
+                        pred_acc = summary['prediction_accuracy'] if summary['prediction_accuracy'] else 0
+                        st.metric(
+                            "Accuracy Reportada",
+                            f"{pred_acc:.1%}"
+                        )
+                else:
+                    st.info("No hay feedback reciente")
+                
+                st.markdown("---")
+                
+                # Exportar datos para reentrenamiento
+                st.markdown("#### 📥 Exportar Datos")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if st.button("📊 Exportar Datos de Reentrenamiento", use_container_width=True):
+                        if feedback_sys.export_training_data():
+                            st.success("✅ Datos exportados a data/retraining_data.csv")
+                        else:
+                            st.warning("⚠️ No hay suficientes datos confirmados")
+                
+                with col2:
+                    # Generar reporte de monitoreo
+                    if st.button("📄 Generar Reporte Completo", use_container_width=True):
+                        report = monitor.generate_monitoring_report()
+                        
+                        report_json = json.dumps(report, indent=2, default=str)
+                        st.download_button(
+                            label="💾 Descargar Reporte JSON",
+                            data=report_json,
+                            file_name=f"monitoring_report_{datetime.now().strftime('%Y%m%d')}.json",
+                            mime="application/json",
+                            use_container_width=True
+                        )
+                
+                # Mostrar feedback reciente
+                st.markdown("---")
+                st.markdown("#### 📝 Feedback Reciente")
+                
+                with st.expander("Ver últimos 10 feedbacks", expanded=False):
+                    feedbacks = feedback_sys._read_jsonl(feedback_sys.feedback_file)
+                    
+                    if feedbacks:
+                        recent = feedbacks[-10:][::-1]  # Últimos 10, orden inverso
+                        
+                        for i, fb in enumerate(recent, 1):
+                            st.markdown(f"""
+                            **Feedback #{i}**
+                            - Fecha: {fb.get('timestamp', 'N/A')}
+                            - Calificación: {fb.get('rating', 'N/A')}/5
+                            - Predicción correcta: {fb.get('prediction_correct', 'N/A')}
+                            - Comentario: {fb.get('comments', 'Sin comentarios')}
+                            ---
+                            """)
+                    else:
+                        st.info("No hay feedback registrado")
+        
+        elif password:
+            st.error("❌ Contraseña incorrecta")
+        else:
+            st.info("🔐 Ingresa la contraseña de administrador para acceder al panel")
 
     # Footer
     st.markdown("---")
